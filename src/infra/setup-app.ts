@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common'
 import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import { EnvService } from './env/env.service'
+import { originCheck } from './http/middlewares/origin-check.middleware'
 
 // Tudo que o app precisa além dos módulos. Fica aqui (e não no main.ts) para o
 // mesmo setup poder ser usado nos testes e2e — senão CORS/helmet só existiriam
@@ -19,4 +20,7 @@ export function configureApp(app: INestApplication) {
     origin: env.get('CORS_ORIGINS'),
     credentials: true,
   })
+
+  // CSRF: barra POST/PUT/PATCH/DELETE vindos de origem fora da lista.
+  app.use(originCheck(env.get('CORS_ORIGINS')))
 }

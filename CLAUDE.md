@@ -149,10 +149,24 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 (UC-01 a UC-20), com serviços de regra (`PortfolioRules`, `RateNormalizer`,
 `IncomeTaxCalculator`, `ComparisonRules`), todos os ports e seus fakes/in-memory em `test/`.
 
-**Ainda não existem:** migration, mappers Prisma, adapters reais (repositórios Prisma,
-`MarketDataProvider` do BCB, `LlmGateway` da Anthropic, `RefreshTokenGenerator` com SHA-256),
-módulos Nest que ligam use-case ↔ adapter, controllers/presenters e o cron do `SyncIndicators`. Tabelas **novas** continuam sendo definidas em conjunto
-com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
+**Infra pronta: `accounts` (UC-01 a UC-05)** — é o modelo para os outros contextos:
 
-Auth hoje: access token curto (`JWT_EXPIRES_IN`, padrão 15m) sem checagem de sessão no banco;
-refresh token com rotação e proteção CSRF entram junto com as tabelas de usuário/sessão.
+- Migration `init` em `prisma/migrations/` (as 8 tabelas).
+- Mappers/repositórios em `src/infra/database/prisma/{mappers,repositories}/`, registrados no
+  `DatabaseModule` como `{ provide: Port, useClass: PrismaX }`.
+- Use-cases entram no Nest por `useFactory` em `src/infra/http/use-cases/<contexto>.providers.ts`
+  (o domain não tem decorators); a classe do use-case é o token de DI.
+- Um controller por use-case em `src/infra/http/controllers/`, com e2e ao lado; erro do `Either`
+  vira exceção HTTP num `switch (error.constructor)`; saída sempre por presenter
+  (`src/infra/http/presenters/`).
+- Endpoints: `POST /accounts`, `POST /sessions`, `POST /sessions/refresh`, `DELETE /sessions`,
+  `GET /me`. Tokens só em cookie (`src/infra/http/auth-cookies.ts`); CSRF por `SameSite=Strict`
+  + checagem de `Origin` (`src/infra/http/middlewares/origin-check.middleware.ts`).
+
+**Ainda não existem:** mappers/repositórios Prisma de `portfolio`, `market-data` e
+`comparison`; adapters `MarketDataProvider` do BCB e `LlmGateway` da Anthropic; controllers
+desses contextos e o cron do `SyncIndicators`. Tabelas **novas** continuam sendo definidas em
+conjunto com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
+
+Auth: o access token (`JWT_EXPIRES_IN`, padrão 15m) não é checado contra a sessão no banco — um
+logout derruba o refresh, mas o access já emitido vale até expirar.

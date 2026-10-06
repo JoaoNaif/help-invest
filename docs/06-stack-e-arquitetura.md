@@ -36,7 +36,7 @@ WebSocket **não** é necessário no MVP. Para respostas do LLM que demoram, usa
 
 - JWT armazenado em **cookie httpOnly** (não acessível por JS), com `Secure` e `SameSite`.
 - Access token de curta duração + refresh token com rotação.
-- Atenção a CSRF por usar cookies (SameSite + token CSRF ou checagem de origem, conforme o front).
+- CSRF: cookies `SameSite=Strict` + checagem de `Origin` em POST/PUT/PATCH/DELETE (middleware em `infra/http/middlewares/`). O `refresh_token` só vai para `/sessions`. Exige front no mesmo *site* da API (ver [05](05-decisoes.md)).
 - Modelar `userId` em todas as tabelas desde o início.
 
 ## Entrada de dados
