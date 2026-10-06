@@ -1,0 +1,14 @@
+# Log de decisões
+
+Formato: data — decisão — motivo.
+
+- **2026-10-05** — Construir primeiro para uso próprio, depois amigos/família, depois avaliar serviço. Motivo: validar utilidade real antes de investir em produto; também serve de aprendizado.
+- **2026-10-05** — Comparador de opções (ex.: vários CDBs) entra como diferencial prioritário. Motivo: é uma dor real e recorrente do autor e provavelmente de muitos investidores.
+- **2026-10-05** — Cálculos e regras em código; LLM para extrair entrada e explicar. Motivo: evitar alucinação e garantir consistência.
+- **2026-10-05** — Stack inicial: Node + TypeScript + NestJS, PostgreSQL, Prisma, Zod, decimal.js, API do Claude. Detalhes em [06](06-stack-e-arquitetura.md). Motivo: familiaridade do autor com Nest e adequação à modularidade do projeto.
+- **2026-10-05** — Sem Redis e sem WebSocket no início; Redis (ou pg-boss) só quando houver fila/cache. Motivo: índices mudam diariamente e cabem em Postgres.
+- **2026-10-05** — Autenticação com JWT em cookie httpOnly; front será um projeto separado, depois do back.
+- **2026-10-05** — Imagens enviadas não serão armazenadas no MVP (só o dado extraído + log do LLM); CSV fora da prioridade. Motivo: o valor está no dado estruturado, não no arquivo.
+- **2026-10-05** — Alertas regulatórios (CVM, LGPD) documentados em `03` para tratar antes de virar serviço.
+- **2026-10-05** — Adotar arquitetura `core` / `domain` / `infra` / `test` com ports, adapters e fakes, como no ZapWave. Contextos: accounts, portfolio, market-data, comparison, recommendations. Sem `notification`. Testes com Vitest (em vez de Jest). Motivo: LLM, provedores de dados e banco precisam ser trocáveis/simuláveis; motor de regras deve ser puro e testável. Detalhes em [06](06-stack-e-arquitetura.md).
+- **2026-10-05** — Use-case obrigatório para qualquer coisa que envolva dado do usuário (carteira, comparações, recomendações); leitura direta pelo repositório só para dados públicos de mercado (ex.: série da Selic). Port fica em `domain`, adapter em `infra`, controller coberto por e2e. Motivo: evitar arquivos sem regra, sem perder checagem de dono e orquestração. Detalhes em [06](06-stack-e-arquitetura.md).
