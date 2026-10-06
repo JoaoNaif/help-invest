@@ -1,4 +1,5 @@
 import { Either } from '@/core/either'
+import { ComparisonExplanationInput } from '../dtos/comparison-explanation-input'
 import { ComparisonOptionInput } from '../dtos/comparison-option-input'
 import { LlmUnavailableError } from '../errors/llm-unavailable-error'
 
@@ -27,6 +28,12 @@ export interface ExtractOptionsResult {
   options: ComparisonOptionInput[] | null
 }
 
+export interface ExplainComparisonResult {
+  call: LlmCall
+  /** `null` = resposta vazia ou inválida. */
+  explanation: string | null
+}
+
 /**
  * Port do LLM (adapter real: API da Anthropic). Só extrai e explica —
  * nunca calcula taxa, imposto ou alerta.
@@ -36,4 +43,8 @@ export abstract class LlmGateway {
   abstract extractOptions(
     source: ExtractionSource
   ): Promise<Either<LlmUnavailableError, ExtractOptionsResult>>
+
+  abstract explainComparison(
+    input: ComparisonExplanationInput
+  ): Promise<Either<LlmUnavailableError, ExplainComparisonResult>>
 }
