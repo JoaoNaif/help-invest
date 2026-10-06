@@ -141,7 +141,10 @@ describe('Explain Comparison', () => {
     expect(log.purpose).toBe(LlmPurpose.EXPLANATION)
     expect(log.userId.equals(userId)).toBe(true)
     expect(log.comparisonId?.equals(comparison.id)).toBe(true)
-    expect(log.response).toEqual({ text: 'A opção 1 rende mais líquido.' })
+    expect(log.response).toEqual({
+      explanation: 'A opção 1 rende mais líquido.',
+      raw: { text: 'A opção 1 rende mais líquido.' },
+    })
   })
 
   it('should log the call even when the explanation comes back empty', async () => {

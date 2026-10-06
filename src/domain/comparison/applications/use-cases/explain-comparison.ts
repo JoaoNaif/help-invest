@@ -15,6 +15,7 @@ import { ExplanationFailedError } from '../errors/explanation-failed-error'
 import { InvalidComparisonStatusError } from '../errors/invalid-comparison-status-error'
 import { LlmUnavailableError } from '../errors/llm-unavailable-error'
 import { LlmGateway } from '../gateways/llm-gateway'
+import { toExplanationLogResponse } from '../mappers/explanation-log-response'
 import { ComparisonsRepository } from '../repositories/comparisons-repository'
 
 interface ExplainComparisonUseCaseRequest {
@@ -100,7 +101,7 @@ export class ExplainComparisonUseCase {
         purpose: LlmPurpose.EXPLANATION,
         model: call.model,
         prompt: call.prompt,
-        response: call.rawResponse,
+        response: toExplanationLogResponse(explanation, call.rawResponse),
         inputTokens: call.inputTokens,
         outputTokens: call.outputTokens,
         comparisonId: comparison.id,

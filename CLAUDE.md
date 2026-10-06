@@ -147,7 +147,7 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 
 Use-cases: implementados um a um conforme [`docs/08`](./docs/08-casos-de-uso.md) (só domínio +
 in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo), UC-06 `SaveInvestorProfile`, UC-07 `GetInvestorProfile`, UC-08 `CreatePosition`, UC-09 `EditPosition`, UC-10 `DeletePosition`, UC-11 `ListPositions`, UC-12 `GetPortfolioSummary` (bloco portfolio completo), UC-13 `SyncIndicators`, UC-14 `CreateComparison`, UC-15 `ReviewComparisonOptions`, UC-16 `EvaluateComparison` (com `RateNormalizer`,
-`IncomeTaxCalculator`, `ComparisonRules`), UC-17 `ExplainComparison`, UC-18 `ChooseComparisonOption`.
+`IncomeTaxCalculator`, `ComparisonRules`), UC-17 `ExplainComparison`, UC-18 `ChooseComparisonOption`, UC-19 `GetComparison`.
 
 **Ainda não existem:** migration, mappers, adapters Prisma dos repositórios, demais use-cases,
 refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
