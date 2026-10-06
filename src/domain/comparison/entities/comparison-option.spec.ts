@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
 import { makeComparisonOption } from 'test/factories/make-comparison-option'
-import { AlertSeverity } from './enums/alert-severity'
+import { AlertSeverity } from '@/domain/shared/enums/alert-severity'
 
 describe('Comparison Option', () => {
   const alert = {

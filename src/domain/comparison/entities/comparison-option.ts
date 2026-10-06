@@ -6,7 +6,7 @@ import { AssetType } from '@/domain/shared/enums/asset-type'
 import { DataSource } from '@/domain/shared/enums/data-source'
 import { Indexer } from '@/domain/shared/enums/indexer'
 import { Liquidity } from '@/domain/shared/enums/liquidity'
-import { ComparisonAlert } from './comparison-alert'
+import { Alert } from '@/domain/shared/alert'
 
 export interface ComparisonOptionProps {
   comparisonId: UniqueEntityId
@@ -22,7 +22,7 @@ export interface ComparisonOptionProps {
   /** Taxa líquida a.a. após IR — calculada só pelo motor de regras. */
   netAnnualRate: Decimal | null
   /** Alertas gerados só pelo motor de regras. */
-  alerts: ComparisonAlert[]
+  alerts: Alert[]
   rawInput: string | null
   source: DataSource
   createdAt: Date
@@ -155,7 +155,7 @@ export class ComparisonOption extends Entity<ComparisonOptionProps> {
   }
 
   /** Grava o resultado do motor de regras. */
-  applyEvaluation(netAnnualRate: Decimal, alerts: ComparisonAlert[]) {
+  applyEvaluation(netAnnualRate: Decimal, alerts: Alert[]) {
     this.props.netAnnualRate = netAnnualRate
     this.props.alerts = alerts
   }

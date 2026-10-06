@@ -84,6 +84,12 @@ Modelo herdado do projeto ZapWave (`../../ZapWave`), adaptado.
 - `applications/repositories/` — **classes abstratas** (não `interface`), usadas como token DI.
 - `applications/cryptography/`, `applications/gateways/` — outros ports.
 - `applications/mappers/`, `applications/dtos/`, `applications/errors/`.
+- `services/` — **serviços de domínio** (motor de regras): cálculo puro, sem port, chamados pelos
+  use-cases (ex.: `portfolio/services/portfolio-rules.ts`). É onde ficam taxa, IR, concentração.
+
+Compartilhado entre contextos: `src/domain/shared/` — enums comuns, `Alert` (formato único de
+alerta), `constants/` (normas com **fonte e data**, ex.: limite do FGC) e `format.ts`
+(`formatBRL`/`formatPercent` direto do `Decimal`).
 
 Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`.
 Portas previstas: `LlmGateway`, `MarketDataProvider`, repositórios.
@@ -140,7 +146,7 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 - Valores monetários e taxas nas entidades são `Decimal` do `decimal.js`.
 
 Use-cases: implementados um a um conforme [`docs/08`](./docs/08-casos-de-uso.md) (só domínio +
-in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo), UC-06 `SaveInvestorProfile`, UC-07 `GetInvestorProfile`, UC-08 `CreatePosition`, UC-09 `EditPosition`, UC-10 `DeletePosition`, UC-11 `ListPositions`.
+in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo), UC-06 `SaveInvestorProfile`, UC-07 `GetInvestorProfile`, UC-08 `CreatePosition`, UC-09 `EditPosition`, UC-10 `DeletePosition`, UC-11 `ListPositions`, UC-12 `GetPortfolioSummary` (bloco portfolio completo).
 
 **Ainda não existem:** migration, mappers, adapters Prisma dos repositórios, demais use-cases,
 refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
