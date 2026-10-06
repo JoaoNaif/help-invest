@@ -8,6 +8,12 @@ export class InMemoryPositionsRepository implements PositionsRepository {
     return this.items.find((item) => item.id.toString() === id) ?? null
   }
 
+  async findManyByUserId(userId: string) {
+    return this.items
+      .filter((item) => item.userId.toString() === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
   async create(position: Position) {
     this.items.push(position)
   }
