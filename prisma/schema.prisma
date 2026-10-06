@@ -1,6 +1,6 @@
 // Schema do Help Invest.
-// Ainda SEM models — as tabelas serão definidas em conjunto, uma a uma,
-// entendendo para que serve cada uma. Referência: docs/
+// Referência de cada tabela, campo e regra: docs/07-modelo-de-dados.md
+// Dinheiro: Decimal(18, 2) · Taxas e índices: Decimal(12, 6) · nunca Float.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +9,237 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum InvestmentGoal {
+  RESERVE
+  RETIREMENT
+  PURCHASE
+  GROWTH
+}
+
+enum RiskTolerance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AssetType {
+  CDB
+  LCI
+  LCA
+  LC
+  TESOURO
+  DEBENTURE
+  CRI
+  CRA
+  ACAO
+  FII
+  FUNDO
+  CRIPTO
+  OUTRO
+}
+
+enum Indexer {
+  PRE
+  CDI
+  IPCA
+  SELIC
+}
+
+enum Liquidity {
+  DAILY
+  AT_MATURITY
+  GRACE_PERIOD
+}
+
+enum DataSource {
+  MANUAL
+  LLM_EXTRACTED
+}
+
+enum Indicator {
+  SELIC
+  CDI
+  IPCA
+}
+
+enum ComparisonStatus {
+  DRAFT
+  CONFIRMED
+  DONE
+}
+
+enum LlmPurpose {
+  EXTRACTION
+  EXPLANATION
+}
+
+// ─── accounts ────────────────────────────────────────────────────────────────
+
+/// Quem usa o sistema; dono de todo o resto.
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions        Session[]
+  investorProfile InvestorProfile?
+  positions       Position[]
+  comparisons     Comparison[]
+  llmLogs         LlmLog[]
+
+  @@map("users")
+}
+
+/// Refresh token com rotação. Válida = expiresAt > agora e revokedAt nulo.
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── portfolio ───────────────────────────────────────────────────────────────
+
+/// O momento do investidor. Um por usuário.
+model InvestorProfile {
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @unique @db.Uuid
+  monthlyIncome    Decimal        @db.Decimal(18, 2)
+  emergencyReserve Decimal        @db.Decimal(18, 2)
+  goal             InvestmentGoal
+  horizonMonths    Int
+  riskTolerance    RiskTolerance
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("investor_profiles")
+}
+
+/// O que o usuário já tem investido.
+model Position {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @db.Uuid
+  assetType      AssetType
+  name           String
+  issuerName     String?
+  issuerCnpj     String?
+  investedAmount Decimal    @db.Decimal(18, 2)
+  indexer        Indexer?
+  rate           Decimal?   @db.Decimal(12, 6)
+  investedAt     DateTime?  @db.Date
+  maturityAt     DateTime?  @db.Date
+  liquidity      Liquidity?
+  source         DataSource
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, issuerCnpj])
+  @@map("positions")
+}
+
+// ─── market-data ─────────────────────────────────────────────────────────────
+
+/// Série histórica de índices (dado público, sem userId).
+model IndicatorValue {
+  id        String    @id @default(uuid()) @db.Uuid
+  indicator Indicator
+  date      DateTime  @db.Date
+  value     Decimal   @db.Decimal(12, 6)
+  source    String
+  fetchedAt DateTime  @default(now())
+
+  @@unique([indicator, date])
+  @@map("indicator_values")
+}
+
+// ─── comparison ──────────────────────────────────────────────────────────────
+
+/// Uma comparação de opções. Fluxo: DRAFT → CONFIRMED → DONE.
+model Comparison {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @db.Uuid
+  amount         Decimal          @db.Decimal(18, 2)
+  horizonMonths  Int
+  status         ComparisonStatus @default(DRAFT)
+  assumptions    Json?
+  chosenOptionId String?          @unique @db.Uuid
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  options      ComparisonOption[] @relation("ComparisonOptions")
+  chosenOption ComparisonOption?  @relation("ChosenOption", fields: [chosenOptionId], references: [id], onDelete: SetNull)
+  llmLogs      LlmLog[]
+
+  @@index([userId])
+  @@map("comparisons")
+}
+
+/// Cada opção comparada. netAnnualRate e alerts vêm só do motor de regras.
+model ComparisonOption {
+  id            String     @id @default(uuid()) @db.Uuid
+  comparisonId  String     @db.Uuid
+  assetType     AssetType
+  issuerName    String?
+  issuerCnpj    String?
+  indexer       Indexer
+  rate          Decimal    @db.Decimal(12, 6)
+  maturityAt    DateTime?  @db.Date
+  liquidity     Liquidity?
+  graceDays     Int?
+  minAmount     Decimal?   @db.Decimal(18, 2)
+  netAnnualRate Decimal?   @db.Decimal(12, 6)
+  alerts        Json?
+  rawInput      String?
+  source        DataSource
+  createdAt     DateTime   @default(now())
+
+  comparison Comparison  @relation("ComparisonOptions", fields: [comparisonId], references: [id], onDelete: Cascade)
+  chosenFor  Comparison? @relation("ChosenOption")
+
+  @@index([comparisonId])
+  @@map("comparison_options")
+}
+
+// ─── recommendations ─────────────────────────────────────────────────────────
+
+/// Auditoria de toda chamada ao LLM. Somente inserção.
+model LlmLog {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  purpose      LlmPurpose
+  model        String
+  prompt       String
+  response     Json
+  inputTokens  Int
+  outputTokens Int
+  comparisonId String?    @db.Uuid
+  createdAt    DateTime   @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comparison Comparison? @relation(fields: [comparisonId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([comparisonId])
+  @@map("llm_logs")
 }

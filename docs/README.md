@@ -12,6 +12,7 @@ Pasta de memória do projeto. Serve para retomar o contexto depois de muito temp
 | [04-roadmap-e-validacao.md](04-roadmap-e-validacao.md) | Fases, MVP e critérios de validação |
 | [05-decisoes.md](05-decisoes.md) | Log de decisões (o que, quando, por quê) |
 | [06-stack-e-arquitetura.md](06-stack-e-arquitetura.md) | Stack, auth, entrada de dados, fontes de dados e fluxo geral |
+| [07-modelo-de-dados.md](07-modelo-de-dados.md) | Tabelas do MVP: o que cada campo faz e onde se aplica; por que existe `Session` |
 
 ## Convenções
 

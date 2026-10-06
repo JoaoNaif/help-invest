@@ -22,6 +22,7 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 | [`docs/04`](./docs/04-roadmap-e-validacao.md) | roadmap e validação |
 | [`docs/05`](./docs/05-decisoes.md) | log de decisões |
 | [`docs/06`](./docs/06-stack-e-arquitetura.md) | stack, arquitetura, entrada de dados, fontes |
+| [`docs/07`](./docs/07-modelo-de-dados.md) | modelo de dados: tabelas, campos, enums, ordem de construção |
 
 ## Princípios do produto (valem para qualquer código)
 
@@ -126,13 +127,20 @@ Portas previstas: `LlmGateway`, `MarketDataProvider`, repositórios.
 
 ## Estado atual
 
-**Só esqueleto.** Existem: configs, `core` (Either, Entity, UniqueEntityId, erros, Optional),
-infra base (env, Prisma sem models, auth JWT com cookie, criptografia bcrypt/JWT, pipe Zod,
-`GET /health`, CI) e as pastas dos contextos vazias.
+Existem: configs, `core` (Either, Entity, UniqueEntityId, erros, Optional), infra base (env,
+auth JWT com cookie, criptografia bcrypt/JWT, pipe Zod, `GET /health`, CI) e o **modelo de dados
+do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 
-**Ainda não existem:** entidades, tabelas/migrations, use-cases, refresh token, controllers de
-negócio. As **tabelas serão definidas em conjunto com o autor**, uma a uma, explicando para que
-serve cada uma — não criar models ou entidades por conta própria.
+- `prisma/schema.prisma` com as 8 tabelas e enums (ainda **sem migration** gerada).
+- Entidades em `src/domain/<contexto>/entities/` + factories em `test/factories/make-*.ts`.
+- Enums do domínio são objetos `as const` com os **mesmos valores** dos enums do Prisma
+  (o domínio não importa o Prisma). Enums usados por mais de um contexto ficam em
+  `src/domain/shared/enums/`; os de um contexto só, em `<contexto>/entities/enums/`.
+- Valores monetários e taxas nas entidades são `Decimal` do `decimal.js`.
+
+**Ainda não existem:** migration, mappers, repositórios (port/adapter/in-memory), use-cases,
+refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
+com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
 
 Auth hoje: access token curto (`JWT_EXPIRES_IN`, padrão 15m) sem checagem de sessão no banco;
 refresh token com rotação e proteção CSRF entram junto com as tabelas de usuário/sessão.
