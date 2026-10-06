@@ -6,11 +6,14 @@ export class InMemoryIndicatorValuesRepository implements IndicatorValuesReposit
   public items: IndicatorValue[] = []
 
   async findLatest(indicator: Indicator) {
-    return (
-      this.items
-        .filter((item) => item.indicator === indicator)
-        .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null
-    )
+    return (await this.findRecent(indicator, 1))[0] ?? null
+  }
+
+  async findRecent(indicator: Indicator, limit: number) {
+    return this.items
+      .filter((item) => item.indicator === indicator)
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, limit)
   }
 
   async createMany(values: IndicatorValue[]) {

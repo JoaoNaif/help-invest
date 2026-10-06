@@ -4,6 +4,11 @@ import { IndicatorValue } from '../../entities/indicator-value'
 export abstract class IndicatorValuesRepository {
   /** Valor mais recente gravado do indicador. */
   abstract findLatest(indicator: Indicator): Promise<IndicatorValue | null>
+  /** Os `limit` valores mais recentes, do mais novo para o mais antigo. */
+  abstract findRecent(
+    indicator: Indicator,
+    limit: number
+  ): Promise<IndicatorValue[]>
   /**
    * Grava ignorando duplicados (`indicator` + `date`).
    * Devolve quantos foram de fato inseridos.

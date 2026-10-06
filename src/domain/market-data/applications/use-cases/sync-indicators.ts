@@ -1,4 +1,5 @@
 import { Either, right } from '@/core/either'
+import { addUtcDays, addUtcYears, startOfUtcDay } from '@/domain/shared/dates'
 import { Indicator } from '../../entities/enums/indicator'
 import { IndicatorValue } from '../../entities/indicator-value'
 import { MarketDataUnavailableError } from '../errors/market-data-unavailable-error'
@@ -94,24 +95,4 @@ export class SyncIndicatorsUseCase {
 
     return right({ synced, failed })
   }
-}
-
-function startOfUtcDay(date: Date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  )
-}
-
-function addUtcDays(date: Date, days: number) {
-  const result = startOfUtcDay(date)
-  result.setUTCDate(result.getUTCDate() + days)
-
-  return result
-}
-
-function addUtcYears(date: Date, years: number) {
-  const result = startOfUtcDay(date)
-  result.setUTCFullYear(result.getUTCFullYear() + years)
-
-  return result
 }
