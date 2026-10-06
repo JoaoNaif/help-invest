@@ -140,7 +140,7 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 - Valores monetários e taxas nas entidades são `Decimal` do `decimal.js`.
 
 Use-cases: implementados um a um conforme [`docs/08`](./docs/08-casos-de-uso.md) (só domínio +
-in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo).
+in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo), UC-06 `SaveInvestorProfile`.
 
 **Ainda não existem:** migration, mappers, adapters Prisma dos repositórios, demais use-cases,
 refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
