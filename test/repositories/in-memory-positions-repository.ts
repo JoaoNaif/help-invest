@@ -17,4 +17,8 @@ export class InMemoryPositionsRepository implements PositionsRepository {
 
     this.items[index] = position
   }
+
+  async delete(position: Position) {
+    this.items = this.items.filter((item) => !item.id.equals(position.id))
+  }
 }
