@@ -163,10 +163,15 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
   `GET /me`. Tokens só em cookie (`src/infra/http/auth-cookies.ts`); CSRF por `SameSite=Strict`
   + checagem de `Origin` (`src/infra/http/middlewares/origin-check.middleware.ts`).
 
-**Ainda não existem:** mappers/repositórios Prisma de `portfolio`, `market-data` e
-`comparison`; adapters `MarketDataProvider` do BCB e `LlmGateway` da Anthropic; controllers
-desses contextos e o cron do `SyncIndicators`. Tabelas **novas** continuam sendo definidas em
-conjunto com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
+**Infra de `portfolio` e `comparison` também pronta** (UC-06 a UC-12 e UC-14 a UC-20): mesmo
+padrão de `accounts`, com `portfolio.providers.ts` e `comparison.providers.ts`. Rotas e
+decisões em [`docs/05`](./docs/05-decisoes.md). Schemas Zod reutilizáveis em
+`src/infra/http/schemas/`; helper de login para e2e em `test/e2e/sign-in.ts`.
+
+**Ainda não existem:** adapters `MarketDataProvider` do BCB e `LlmGateway` da Anthropic (o port
+usa `UnavailableLlmGateway`, que responde 503) e o cron do `SyncIndicators`. Tabelas **novas**
+continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do
+`docs/07` por conta própria.
 
 Auth: o access token (`JWT_EXPIRES_IN`, padrão 15m) não é checado contra a sessão no banco — um
 logout derruba o refresh, mas o access já emitido vale até expirar.
