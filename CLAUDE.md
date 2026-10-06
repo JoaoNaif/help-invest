@@ -145,12 +145,13 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
   `src/domain/shared/enums/`; os de um contexto só, em `<contexto>/entities/enums/`.
 - Valores monetários e taxas nas entidades são `Decimal` do `decimal.js`.
 
-Use-cases: implementados um a um conforme [`docs/08`](./docs/08-casos-de-uso.md) (só domínio +
-in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`, UC-02 `Authenticate`, UC-03 `RefreshSession`, UC-04 `Logout`, UC-05 `GetCurrentUser` (bloco accounts completo), UC-06 `SaveInvestorProfile`, UC-07 `GetInvestorProfile`, UC-08 `CreatePosition`, UC-09 `EditPosition`, UC-10 `DeletePosition`, UC-11 `ListPositions`, UC-12 `GetPortfolioSummary` (bloco portfolio completo), UC-13 `SyncIndicators`, UC-14 `CreateComparison`, UC-15 `ReviewComparisonOptions`, UC-16 `EvaluateComparison` (com `RateNormalizer`,
-`IncomeTaxCalculator`, `ComparisonRules`), UC-17 `ExplainComparison`, UC-18 `ChooseComparisonOption`, UC-19 `GetComparison`.
+**Use-cases: os 20 do [`docs/08`](./docs/08-casos-de-uso.md) estão implementados no domínio**
+(UC-01 a UC-20), com serviços de regra (`PortfolioRules`, `RateNormalizer`,
+`IncomeTaxCalculator`, `ComparisonRules`), todos os ports e seus fakes/in-memory em `test/`.
 
-**Ainda não existem:** migration, mappers, adapters Prisma dos repositórios, demais use-cases,
-refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
+**Ainda não existem:** migration, mappers Prisma, adapters reais (repositórios Prisma,
+`MarketDataProvider` do BCB, `LlmGateway` da Anthropic, `RefreshTokenGenerator` com SHA-256),
+módulos Nest que ligam use-case ↔ adapter, controllers/presenters e o cron do `SyncIndicators`. Tabelas **novas** continuam sendo definidas em conjunto
 com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
 
 Auth hoje: access token curto (`JWT_EXPIRES_IN`, padrão 15m) sem checagem de sessão no banco;

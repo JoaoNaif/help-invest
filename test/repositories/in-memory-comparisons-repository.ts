@@ -1,4 +1,7 @@
-import { ComparisonsRepository } from '@/domain/comparison/applications/repositories/comparisons-repository'
+import {
+  ComparisonsRepository,
+  PaginationParams,
+} from '@/domain/comparison/applications/repositories/comparisons-repository'
 import { Comparison } from '@/domain/comparison/entities/comparison'
 import { ComparisonOption } from '@/domain/comparison/entities/comparison-option'
 
@@ -8,6 +11,13 @@ export class InMemoryComparisonsRepository implements ComparisonsRepository {
 
   async findById(id: string) {
     return this.items.find((item) => item.id.toString() === id) ?? null
+  }
+
+  async findManyByUserId(userId: string, { page, perPage }: PaginationParams) {
+    return this.items
+      .filter((item) => item.userId.toString() === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice((page - 1) * perPage, page * perPage)
   }
 
   async findOptionsByComparisonId(comparisonId: string) {
