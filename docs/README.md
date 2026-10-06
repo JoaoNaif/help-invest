@@ -13,6 +13,7 @@ Pasta de memória do projeto. Serve para retomar o contexto depois de muito temp
 | [05-decisoes.md](05-decisoes.md) | Log de decisões (o que, quando, por quê) |
 | [06-stack-e-arquitetura.md](06-stack-e-arquitetura.md) | Stack, auth, entrada de dados, fontes de dados e fluxo geral |
 | [07-modelo-de-dados.md](07-modelo-de-dados.md) | Tabelas do MVP: o que cada campo faz e onde se aplica; por que existe `Session` |
+| [08-casos-de-uso.md](08-casos-de-uso.md) | Use-cases essenciais do MVP: entrada, saída, erros, ports, ordem de implementação |
 
 ## Convenções
 

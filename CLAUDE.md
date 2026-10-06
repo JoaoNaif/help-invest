@@ -23,6 +23,7 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 | [`docs/05`](./docs/05-decisoes.md) | log de decisões |
 | [`docs/06`](./docs/06-stack-e-arquitetura.md) | stack, arquitetura, entrada de dados, fontes |
 | [`docs/07`](./docs/07-modelo-de-dados.md) | modelo de dados: tabelas, campos, enums, ordem de construção |
+| [`docs/08`](./docs/08-casos-de-uso.md) | use-cases essenciais: entrada, saída, erros, ports, ordem |
 
 ## Princípios do produto (valem para qualquer código)
 
