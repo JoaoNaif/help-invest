@@ -139,7 +139,10 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
   `src/domain/shared/enums/`; os de um contexto só, em `<contexto>/entities/enums/`.
 - Valores monetários e taxas nas entidades são `Decimal` do `decimal.js`.
 
-**Ainda não existem:** migration, mappers, repositórios (port/adapter/in-memory), use-cases,
+Use-cases: implementados um a um conforme [`docs/08`](./docs/08-casos-de-uso.md) (só domínio +
+in-memory, **sem controller** por enquanto). Feito: UC-01 `RegisterUser`.
+
+**Ainda não existem:** migration, mappers, adapters Prisma dos repositórios, demais use-cases,
 refresh token, controllers de negócio. Tabelas **novas** continuam sendo definidas em conjunto
 com o autor — não criar models ou entidades fora do `docs/07` por conta própria.
 
