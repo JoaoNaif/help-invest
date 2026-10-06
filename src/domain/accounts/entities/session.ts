@@ -11,6 +11,9 @@ export interface SessionProps {
   createdAt: Date
 }
 
+/** Validade do refresh token (sessão longa). */
+export const SESSION_DURATION_DAYS = 30
+
 /**
  * Refresh token com rotação. Cada token serve uma vez: ao renovar, a sessão
  * antiga é revogada. Ver docs/07-modelo-de-dados.md#2-session.
@@ -56,6 +59,13 @@ export class Session extends Entity<SessionProps> {
     if (this.isRevoked) return
 
     this.props.revokedAt = now
+  }
+
+  static expiresAtFrom(now = new Date()) {
+    const expiresAt = new Date(now)
+    expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS)
+
+    return expiresAt
   }
 
   static create(
