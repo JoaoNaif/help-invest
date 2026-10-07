@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { z } from 'zod'
 import { ExtractionFailedError } from '@/domain/comparison/applications/errors/extraction-failed-error'
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
@@ -58,6 +59,8 @@ export class CreateComparisonController {
 
   @Post()
   @HttpCode(201)
+  // Texto e print chamam o LLM (custo por chamada): limite mais duro que o geral.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async handle(
     @CurrentUser() user: UserPayload,
     @Body(new ZodValidationPipe(createComparisonBodySchema))
