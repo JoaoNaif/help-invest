@@ -171,7 +171,11 @@ decisões em [`docs/05`](./docs/05-decisoes.md). Schemas Zod reutilizáveis em
 **LLM:** `AnthropicLlmGateway` em `src/infra/gateways/` (chave em `ANTHROPIC_API_KEY`; sem ela
 vale o `UnavailableLlmGateway`, 503). e2e usam `FakeLlmGateway`.
 
-**Ainda não existem:** adapter `MarketDataProvider` do BCB e o cron do `SyncIndicators`. Tabelas **novas**
+**Dados de mercado:** `BcbMarketDataProvider` + `IndicatorsSyncJob` (`src/infra/jobs/`, ao subir e a
+cada 6 h; desligável com `INDICATORS_SYNC_ENABLED=false`). Por que assim e o que fazer se o
+hosting mudar: [`docs/05`](./docs/05-decisoes.md) (entrada "Dados de mercado").
+
+**Pendências:** nenhuma de infra do MVP. Tabelas **novas**
 continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do
 `docs/07` por conta própria.
 

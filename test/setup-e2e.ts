@@ -12,6 +12,9 @@ config({ path: '.env', override: false })
 // religa isso antes de importar o app (ver hardening.e2e-spec.ts).
 process.env.RATE_LIMIT_ENABLED = 'false'
 
+// O job de indicadores não deve chamar o BCB (rede) a cada app subido nos e2e.
+process.env.INDICATORS_SYNC_ENABLED = 'false'
+
 const schemaId = randomUUID()
 
 // Pool pequeno por arquivo: o padrão do Prisma é (CPUs * 2 + 1) conexões, e

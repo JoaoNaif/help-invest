@@ -6,6 +6,7 @@ import { EnvService } from './env/env.service'
 import { DatabaseModule } from './database/database.module'
 import { HttpModule } from './http/http.module'
 import { AuthModule } from './auth/auth.module'
+import { JobsModule } from './jobs/jobs.module'
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthModule } from './auth/auth.module'
     DatabaseModule,
     AuthModule,
     HttpModule,
+    JobsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -32,6 +32,13 @@ export const envSchema = z.object({
   // Validade do access token. Curta de propósito: a sessão longa vem do refresh token.
   JWT_EXPIRES_IN: z.string().default('15m'),
 
+  // Sincronização de Selic/CDI/IPCA com o BCB (ao subir e a cada 6 h). Os e2e
+  // desligam: não devem depender da rede nem do BCB.
+  INDICATORS_SYNC_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
   // LLM (extração de opções e explicação). Sem chave, o LlmGateway fica
   // indisponível (503) e só a comparação com opções digitadas funciona.
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
