@@ -31,6 +31,11 @@ export const envSchema = z.object({
   JWT_PUBLIC_KEY: z.string(),
   // Validade do access token. Curta de propósito: a sessão longa vem do refresh token.
   JWT_EXPIRES_IN: z.string().default('15m'),
+
+  // LLM (extração de opções e explicação). Sem chave, o LlmGateway fica
+  // indisponível (503) e só a comparação com opções digitadas funciona.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5-5'),
 })
 
 export type Env = z.infer<typeof envSchema>

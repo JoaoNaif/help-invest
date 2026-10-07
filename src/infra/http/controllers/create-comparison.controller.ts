@@ -22,6 +22,10 @@ import {
   comparisonOptionInputSchema,
 } from '../schemas/comparison-option'
 
+// A API do LLM aceita imagens de até 5 MB (~6,7 milhões de caracteres em base64).
+const MAX_IMAGE_BASE64_LENGTH = 7_000_000
+const MAX_TEXT_LENGTH = 20_000
+
 const createComparisonBodySchema = z.object({
   amount: positiveDecimalSchema,
   horizonMonths: z.number().int().positive(),
@@ -33,10 +37,13 @@ const createComparisonBodySchema = z.object({
         .min(1)
         .max(MAX_COMPARISON_OPTIONS),
     }),
-    z.object({ type: z.literal('text'), text: z.string().trim().min(1) }),
+    z.object({
+      type: z.literal('text'),
+      text: z.string().trim().min(1).max(MAX_TEXT_LENGTH),
+    }),
     z.object({
       type: z.literal('image'),
-      base64: z.string().min(1),
+      base64: z.string().min(1).max(MAX_IMAGE_BASE64_LENGTH),
       mediaType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
     }),
   ]),

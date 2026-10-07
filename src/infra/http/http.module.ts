@@ -1,8 +1,11 @@
+import Anthropic from '@anthropic-ai/sdk'
 import { Module } from '@nestjs/common'
 import { LlmGateway } from '@/domain/comparison/applications/gateways/llm-gateway'
 import { DatabaseModule } from '../database/database.module'
 import { CryptographyModule } from '../cryptography/cryptography.module'
 import { EnvModule } from '../env/env.module'
+import { EnvService } from '../env/env.service'
+import { AnthropicLlmGateway } from '../gateways/anthropic-llm-gateway'
 import { UnavailableLlmGateway } from '../gateways/unavailable-llm-gateway'
 import { AuthenticateController } from './controllers/authenticate.controller'
 import { ChooseComparisonOptionController } from './controllers/choose-comparison-option.controller'
@@ -57,8 +60,22 @@ import { portfolioUseCases } from './use-cases/portfolio.providers'
     ListComparisonsController,
   ],
   providers: [
-    // Trocar pelo adapter da Anthropic quando existir.
-    { provide: LlmGateway, useClass: UnavailableLlmGateway },
+    // Sem ANTHROPIC_API_KEY o LLM fica indisponível (503) e só a comparação
+    // manual funciona.
+    {
+      provide: LlmGateway,
+      inject: [EnvService],
+      useFactory: (env: EnvService): LlmGateway => {
+        const apiKey = env.get('ANTHROPIC_API_KEY')
+
+        return apiKey
+          ? new AnthropicLlmGateway(
+              new Anthropic({ apiKey }),
+              env.get('ANTHROPIC_MODEL')
+            )
+          : new UnavailableLlmGateway()
+      },
+    },
     ...accountsUseCases,
     ...portfolioUseCases,
     ...comparisonUseCases,

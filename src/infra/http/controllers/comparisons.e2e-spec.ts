@@ -1,15 +1,20 @@
 import { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import request from 'supertest'
+import Decimal from 'decimal.js'
+import { LlmGateway } from '@/domain/comparison/applications/gateways/llm-gateway'
 import { AppModule } from '@/infra/app.module'
 import { PrismaService } from '@/infra/database/prisma/prisma.service'
 import { configureApp } from '@/infra/setup-app'
+import { FakeLlmGateway } from 'test/gateways/fake-llm-gateway'
 import { signIn } from 'test/e2e/sign-in'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 describe('Comparisons (e2e)', () => {
   let app: INestApplication
   let prisma: PrismaService
+  // O LLM real custa dinheiro e não é determinístico: nos e2e vai um fake.
+  const llm = new FakeLlmGateway()
   let cookie: string
   let otherCookie: string
   let comparisonId: string
@@ -61,7 +66,10 @@ describe('Comparisons (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile()
+    })
+      .overrideProvider(LlmGateway)
+      .useValue(llm)
+      .compile()
 
     app = moduleRef.createNestApplication()
     configureApp(app)
@@ -92,11 +100,52 @@ describe('Comparisons (e2e)', () => {
     comparisonId = response.body.comparison.id
   })
 
-  test('[POST] /comparisons by text while the LLM adapter is missing', async () => {
+  test('[POST] /comparisons by text', async () => {
+    llm.extractedOptions = [
+      {
+        assetType: 'CDB',
+        indexer: 'CDI',
+        rate: new Decimal(110),
+        issuerName: 'Banco LLM',
+      },
+    ]
+
     const response = await request(app.getHttpServer())
       .post('/comparisons')
       .set('Cookie', cookie)
       .send({ ...body, input: { type: 'text', text: 'CDB 110% CDI' } })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.body.options[0]).toEqual(
+      expect.objectContaining({ source: 'LLM_EXTRACTED', rate: '110' })
+    )
+  })
+
+  test('[POST] /comparisons by image accepts a body larger than 100kb', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/comparisons')
+      .set('Cookie', cookie)
+      .send({
+        ...body,
+        input: {
+          type: 'image',
+          base64: 'A'.repeat(300_000),
+          mediaType: 'image/png',
+        },
+      })
+
+    expect(response.statusCode).toBe(201)
+  })
+
+  test('[POST] /comparisons when the LLM is unavailable', async () => {
+    llm.unavailable = true
+
+    const response = await request(app.getHttpServer())
+      .post('/comparisons')
+      .set('Cookie', cookie)
+      .send({ ...body, input: { type: 'text', text: 'CDB 110% CDI' } })
+
+    llm.unavailable = false
 
     expect(response.statusCode).toBe(503)
   })
@@ -188,12 +237,15 @@ describe('Comparisons (e2e)', () => {
     expect(response.statusCode).toBe(409)
   })
 
-  test('[POST] /comparisons/:id/explanation while the LLM adapter is missing', async () => {
+  test('[POST] /comparisons/:id/explanation', async () => {
     const response = await request(app.getHttpServer())
       .post(`/comparisons/${comparisonId}/explanation`)
       .set('Cookie', cookie)
 
-    expect(response.statusCode).toBe(503)
+    expect(response.statusCode).toBe(200)
+    expect(response.body.explanation).toBe(llm.explanation)
+    // o motor já calculou: o LLM recebe os números prontos
+    expect(llm.explainCalls[0].options[0].netAnnualRate).toMatch(/^\d/)
   })
 
   test('[PUT] /comparisons/:id/chosen-option', async () => {
@@ -229,7 +281,7 @@ describe('Comparisons (e2e)', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.body.comparison.chosenOptionId).toBe(optionIds[1])
-    expect(response.body.explanation).toBeNull()
+    expect(response.body.explanation).toBe(llm.explanation)
 
     // avaliada: da maior para a menor taxa líquida
     const [best, worst] = response.body.options.map(
@@ -244,7 +296,7 @@ describe('Comparisons (e2e)', () => {
       .set('Cookie', cookie)
 
     expect(response.statusCode).toBe(200)
-    expect(response.body.comparisons).toHaveLength(1)
+    expect(response.body.comparisons).toHaveLength(3)
     expect(response.body.comparisons[0]).not.toHaveProperty('options')
 
     const others = await request(app.getHttpServer())

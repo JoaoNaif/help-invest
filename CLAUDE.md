@@ -168,8 +168,10 @@ padrão de `accounts`, com `portfolio.providers.ts` e `comparison.providers.ts`.
 decisões em [`docs/05`](./docs/05-decisoes.md). Schemas Zod reutilizáveis em
 `src/infra/http/schemas/`; helper de login para e2e em `test/e2e/sign-in.ts`.
 
-**Ainda não existem:** adapters `MarketDataProvider` do BCB e `LlmGateway` da Anthropic (o port
-usa `UnavailableLlmGateway`, que responde 503) e o cron do `SyncIndicators`. Tabelas **novas**
+**LLM:** `AnthropicLlmGateway` em `src/infra/gateways/` (chave em `ANTHROPIC_API_KEY`; sem ela
+vale o `UnavailableLlmGateway`, 503). e2e usam `FakeLlmGateway`.
+
+**Ainda não existem:** adapter `MarketDataProvider` do BCB e o cron do `SyncIndicators`. Tabelas **novas**
 continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do
 `docs/07` por conta própria.
 
