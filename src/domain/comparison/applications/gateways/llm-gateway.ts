@@ -1,4 +1,5 @@
 import { Either } from '@/core/either'
+import { ComparisonExplanation } from '../dtos/comparison-explanation'
 import { ComparisonExplanationInput } from '../dtos/comparison-explanation-input'
 import { ComparisonOptionInput } from '../dtos/comparison-option-input'
 import { LlmUnavailableError } from '../errors/llm-unavailable-error'
@@ -31,7 +32,7 @@ export interface ExtractOptionsResult {
 export interface ExplainComparisonResult {
   call: LlmCall
   /** `null` = resposta vazia ou inválida. */
-  explanation: string | null
+  explanation: ComparisonExplanation | null
 }
 
 /**

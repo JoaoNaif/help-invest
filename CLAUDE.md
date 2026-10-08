@@ -24,6 +24,7 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 | [`docs/06`](./docs/06-stack-e-arquitetura.md) | stack, arquitetura, entrada de dados, fontes |
 | [`docs/07`](./docs/07-modelo-de-dados.md) | modelo de dados: tabelas, campos, enums, ordem de construção |
 | [`docs/08`](./docs/08-casos-de-uso.md) | use-cases essenciais: entrada, saída, erros, ports, ordem |
+| [`docs/09`](./docs/09-api-referencia.md) | contrato HTTP para o front (rotas, erros, cookies/CORS) |
 
 ## Princípios do produto (valem para qualquer código)
 
@@ -57,6 +58,9 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 
 Rodar **um arquivo**: `npx vitest run src/core/entities/entity.spec.ts`
 (e2e: `npx vitest run --config vitest.config.e2e.ts src/infra/http/controllers/health.e2e-spec.ts`)
+
+Banco novo (ou depois de puxar uma migration): `npx prisma migrate deploy`. Sem isso o app
+sobe, mas as consultas falham com "table does not exist".
 
 No Windows, `prisma generate` pode falhar com EPERM se um processo node (ex.: `nest start`)
 estiver segurando a DLL do engine — feche-o antes.
@@ -167,6 +171,10 @@ do MVP** ([`docs/07`](./docs/07-modelo-de-dados.md)):
 padrão de `accounts`, com `portfolio.providers.ts` e `comparison.providers.ts`. Rotas e
 decisões em [`docs/05`](./docs/05-decisoes.md). Schemas Zod reutilizáveis em
 `src/infra/http/schemas/`; helper de login para e2e em `test/e2e/sign-in.ts`.
+
+**Front:** projeto separado em `../frontend` (Vite + React). O Claude do backend o enxerga em
+leitura por `.claude/settings.local.json` (por máquina, ignorado pelo git; o front tem o espelho).
+O contrato que ele consome é [`docs/09`](./docs/09-api-referencia.md) — **atualize-o ao mudar a API**.
 
 **LLM:** `AnthropicLlmGateway` em `src/infra/gateways/` (chave em `ANTHROPIC_API_KEY`; sem ela
 vale o `UnavailableLlmGateway`, 503). e2e usam `FakeLlmGateway`.

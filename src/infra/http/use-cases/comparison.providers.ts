@@ -6,6 +6,7 @@ import { CreateComparisonUseCase } from '@/domain/comparison/applications/use-ca
 import { EvaluateComparisonUseCase } from '@/domain/comparison/applications/use-cases/evaluate-comparison'
 import { ExplainComparisonUseCase } from '@/domain/comparison/applications/use-cases/explain-comparison'
 import { GetComparisonUseCase } from '@/domain/comparison/applications/use-cases/get-comparison'
+import { ListRecentComparisonOptionsUseCase } from '@/domain/comparison/applications/use-cases/list-recent-comparison-options'
 import { ListComparisonsUseCase } from '@/domain/comparison/applications/use-cases/list-comparisons'
 import { ReviewComparisonOptionsUseCase } from '@/domain/comparison/applications/use-cases/review-comparison-options'
 import { IndicatorValuesRepository } from '@/domain/market-data/applications/repositories/indicator-values-repository'
@@ -84,5 +85,11 @@ export const comparisonUseCases: Provider[] = [
     inject: [ComparisonsRepository],
     useFactory: (comparisons: ComparisonsRepository) =>
       new ListComparisonsUseCase(comparisons),
+  },
+  {
+    provide: ListRecentComparisonOptionsUseCase,
+    inject: [ComparisonsRepository],
+    useFactory: (comparisons: ComparisonsRepository) =>
+      new ListRecentComparisonOptionsUseCase(comparisons),
   },
 ]

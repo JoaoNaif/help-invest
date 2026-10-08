@@ -144,51 +144,83 @@ describe('Anthropic LLM Gateway', () => {
     expect(result.isRight() && result.value.options).toBeNull()
   })
 
+  const explanationInput = {
+    amount: '5000',
+    horizonMonths: 24,
+    options: [],
+    assumptions: {},
+    goal: 'RESERVE' as const,
+    investor: null,
+  }
+
+  const validExplanation = {
+    summary: 'A opção 1 rende mais líquido.',
+    bestOptionId: 'opt-1',
+    bestReason: 'Combina com a sua reserva.',
+    options: [{ optionId: 'opt-1', pros: ['Liquidez'], cons: ['Taxa menor'] }],
+  }
+
   it('should be able to explain a comparison', async () => {
-    create.mockResolvedValue(makeMessage('  A opção 1 rende mais.  '))
+    create.mockResolvedValue(makeMessage(JSON.stringify(validExplanation)))
 
-    const result = await sut.explainComparison({
-      amount: '5000',
-      horizonMonths: 24,
-      options: [],
-      assumptions: {},
-      investor: null,
-    })
+    const result = await sut.explainComparison(explanationInput)
 
-    expect(result.isRight() && result.value.explanation).toBe(
-      'A opção 1 rende mais.'
+    expect(result.isRight() && result.value.explanation).toEqual(
+      validExplanation
     )
-    // os números vão ao LLM como texto exato
-    expect(create.mock.calls[0][0].messages[0].content[0].text).toContain(
-      '"amount": "5000"'
-    )
+
+    const request = create.mock.calls[0][0]
+    // os números e o objetivo vão ao LLM como texto exato
+    expect(request.messages[0].content[0].text).toContain('"amount": "5000"')
+    expect(request.messages[0].content[0].text).toContain('"goal": "RESERVE"')
+    expect(request.output_config.format.type).toBe('json_schema')
   })
 
-  it('should return a null explanation when the answer is empty or refused', async () => {
-    create.mockResolvedValue(makeMessage('   '))
+  it('should tell the LLM to indicate an option using the goal', async () => {
+    create.mockResolvedValue(makeMessage(JSON.stringify(validExplanation)))
 
-    const empty = await sut.explainComparison({
-      amount: '1',
-      horizonMonths: 1,
-      options: [],
-      assumptions: {},
-      investor: null,
-    })
+    await sut.explainComparison(explanationInput)
+
+    const system = create.mock.calls[0][0].system as string
+
+    expect(system).toContain('bestOptionId')
+    expect(system).toContain('"goal"')
+    expect(system).toContain('pros')
+  })
+
+  it.each([
+    ['empty text', '   '],
+    ['not json', 'texto corrido antigo'],
+    ['missing fields', JSON.stringify({ summary: 'só isso' })],
+    [
+      'empty summary',
+      JSON.stringify({ ...validExplanation, summary: '  ' }),
+    ],
+  ])('should return a null explanation on %s', async (_, text) => {
+    create.mockResolvedValue(makeMessage(text))
+
+    const result = await sut.explainComparison(explanationInput)
+
+    expect(result.isRight()).toBe(true)
+    expect(result.isRight() && result.value.explanation).toBeNull()
+    expect(result.isRight() && result.value.call.rawResponse).toBeDefined()
+  })
+
+  it('should return a null explanation when the answer was refused or cut', async () => {
+    create.mockResolvedValue(
+      makeMessage(JSON.stringify(validExplanation), { stop_reason: 'refusal' })
+    )
+    const refused = await sut.explainComparison(explanationInput)
 
     create.mockResolvedValue(
-      makeMessage('texto', { stop_reason: 'refusal' })
+      makeMessage(JSON.stringify(validExplanation), {
+        stop_reason: 'max_tokens',
+      })
     )
+    const cut = await sut.explainComparison(explanationInput)
 
-    const refused = await sut.explainComparison({
-      amount: '1',
-      horizonMonths: 1,
-      options: [],
-      assumptions: {},
-      investor: null,
-    })
-
-    expect(empty.isRight() && empty.value.explanation).toBeNull()
     expect(refused.isRight() && refused.value.explanation).toBeNull()
+    expect(cut.isRight() && cut.value.explanation).toBeNull()
   })
 
   it('should return LlmUnavailableError when the API fails', async () => {
@@ -206,6 +238,7 @@ describe('Anthropic LLM Gateway', () => {
       horizonMonths: 1,
       options: [],
       assumptions: {},
+      goal: null,
       investor: null,
     })
 

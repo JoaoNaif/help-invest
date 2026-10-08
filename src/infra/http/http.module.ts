@@ -21,6 +21,7 @@ import { GetInvestorProfileController } from './controllers/get-investor-profile
 import { GetPortfolioSummaryController } from './controllers/get-portfolio-summary.controller'
 import { HealthController } from './controllers/health.controller'
 import { ListComparisonsController } from './controllers/list-comparisons.controller'
+import { ListRecentComparisonOptionsController } from './controllers/list-recent-comparison-options.controller'
 import { ListPositionsController } from './controllers/list-positions.controller'
 import { LogoutController } from './controllers/logout.controller'
 import { RefreshSessionController } from './controllers/refresh-session.controller'
@@ -58,6 +59,7 @@ import { portfolioUseCases } from './use-cases/portfolio.providers'
     ChooseComparisonOptionController,
     GetComparisonController,
     ListComparisonsController,
+    ListRecentComparisonOptionsController,
   ],
   providers: [
     // Sem ANTHROPIC_API_KEY o LLM fica indisponível (503) e só a comparação

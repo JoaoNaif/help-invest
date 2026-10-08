@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
+import { InvestmentGoal } from '@/domain/portfolio/entities/enums/investment-goal'
 import { LlmPurpose } from '@/domain/recommendations/entities/enums/llm-purpose'
 import { AssetType } from '@/domain/shared/enums/asset-type'
 import { DataSource } from '@/domain/shared/enums/data-source'
@@ -82,6 +83,24 @@ describe('Create Comparison', () => {
       )
       expect(options.every((o) => o.source === DataSource.MANUAL)).toBe(true)
       expect(options[1].graceDays).toBe(90)
+    })
+
+    it('should save the goal of the comparison when informed', async () => {
+      await sut.execute({
+        ...base,
+        goal: InvestmentGoal.PURCHASE,
+        input: { type: 'manual', options: [cdbA] },
+      })
+
+      expect(inMemoryComparisonsRepository.items[0].goal).toBe(
+        InvestmentGoal.PURCHASE
+      )
+    })
+
+    it('should create without a goal by default', async () => {
+      await sut.execute({ ...base, input: { type: 'manual', options: [cdbA] } })
+
+      expect(inMemoryComparisonsRepository.items[0].goal).toBeNull()
     })
 
     it('should not call the LLM nor create a log', async () => {

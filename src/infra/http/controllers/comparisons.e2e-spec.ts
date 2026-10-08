@@ -96,8 +96,35 @@ describe('Comparisons (e2e)', () => {
     )
     expect(response.body.options).toHaveLength(2)
     expect(response.body.options[0].netAnnualRate).toBeNull()
+    // sem objetivo informado
+    expect(response.body.comparison.goal).toBeNull()
 
     comparisonId = response.body.comparison.id
+  })
+
+  test('[POST] /comparisons with a goal', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/comparisons')
+      .set('Cookie', cookie)
+      .send({ ...body, goal: 'PURCHASE' })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.body.comparison.goal).toBe('PURCHASE')
+
+    const detail = await request(app.getHttpServer())
+      .get(`/comparisons/${response.body.comparison.id}`)
+      .set('Cookie', cookie)
+
+    expect(detail.body.comparison.goal).toBe('PURCHASE')
+  })
+
+  test('[POST] /comparisons with an invalid goal', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/comparisons')
+      .set('Cookie', cookie)
+      .send({ ...body, goal: 'GET_RICH' })
+
+    expect(response.statusCode).toBe(400)
   })
 
   test('[POST] /comparisons by text', async () => {
@@ -238,12 +265,27 @@ describe('Comparisons (e2e)', () => {
   })
 
   test('[POST] /comparisons/:id/explanation', async () => {
+    llm.explanation = {
+      summary: 'A opção 1 rende mais líquido.',
+      bestOptionId: optionIds[0],
+      bestReason: 'Combina com o objetivo.',
+      options: [
+        { optionId: optionIds[0], pros: ['Taxa maior'], cons: ['Prazo longo'] },
+        // id que o LLM inventou: o backend descarta
+        { optionId: '00000000-0000-4000-8000-000000000000', pros: [], cons: [] },
+      ],
+    }
+
     const response = await request(app.getHttpServer())
       .post(`/comparisons/${comparisonId}/explanation`)
       .set('Cookie', cookie)
 
     expect(response.statusCode).toBe(200)
-    expect(response.body.explanation).toBe(llm.explanation)
+    expect(response.body.explanation).toEqual({
+      ...llm.explanation,
+      options: [llm.explanation!.options[0]],
+    })
+    expect(llm.explainCalls[0].options[0].optionId).toBe(optionIds[0])
     // o motor já calculou: o LLM recebe os números prontos
     expect(llm.explainCalls[0].options[0].netAnnualRate).toMatch(/^\d/)
   })
@@ -281,7 +323,9 @@ describe('Comparisons (e2e)', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.body.comparison.chosenOptionId).toBe(optionIds[1])
-    expect(response.body.explanation).toBe(llm.explanation)
+    // a última explicação gerada volta no detalhe, já saneada
+    expect(response.body.explanation.bestOptionId).toBe(optionIds[0])
+    expect(response.body.explanation.options).toHaveLength(1)
 
     // avaliada: da maior para a menor taxa líquida
     const [best, worst] = response.body.options.map(
@@ -296,14 +340,78 @@ describe('Comparisons (e2e)', () => {
       .set('Cookie', cookie)
 
     expect(response.statusCode).toBe(200)
-    expect(response.body.comparisons).toHaveLength(3)
+    expect(response.body.comparisons).toHaveLength(4)
     expect(response.body.comparisons[0]).not.toHaveProperty('options')
+
+    const evaluated = response.body.comparisons.find(
+      (item: { id: string }) => item.id === comparisonId
+    )
+    expect(evaluated.optionsCount).toBe(2)
+    expect(evaluated.topOption).toEqual({
+      issuerName: expect.any(String),
+      assetType: 'CDB',
+      netAnnualRate: expect.stringMatching(/^\d/),
+    })
+
+    // rascunho: tem opções, mas ainda não há "melhor"
+    const draft = response.body.comparisons.find(
+      (item: { status: string }) => item.status === 'DRAFT'
+    )
+    expect(draft.optionsCount).toBeGreaterThan(0)
+    expect(draft.topOption).toBeNull()
 
     const others = await request(app.getHttpServer())
       .get('/comparisons?page=1')
       .set('Cookie', otherCookie)
 
     expect(others.body.comparisons).toHaveLength(0)
+  })
+
+  test('[GET] /comparison-options/recent', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/comparison-options/recent')
+      .set('Cookie', cookie)
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.options.length).toBeGreaterThan(0)
+
+    // só dados de entrada: nada de id, resultado do motor nem origem
+    for (const option of response.body.options) {
+      expect(Object.keys(option).sort()).toEqual(
+        [
+          'assetType',
+          'graceDays',
+          'indexer',
+          'issuerCnpj',
+          'issuerName',
+          'liquidity',
+          'maturityAt',
+          'minAmount',
+          'rate',
+        ].sort()
+      )
+    }
+
+    // sem repetir a mesma opção (Banco A 100% CDI aparece em mais de uma comparação)
+    const keys = response.body.options.map(
+      (option: { issuerName: string; rate: string }) =>
+        `${option.issuerName}|${option.rate}`
+    )
+    expect(new Set(keys).size).toBe(keys.length)
+
+    const others = await request(app.getHttpServer())
+      .get('/comparison-options/recent')
+      .set('Cookie', otherCookie)
+
+    expect(others.body.options).toEqual([])
+  })
+
+  test('[GET] /comparison-options/recent without token', async () => {
+    const response = await request(app.getHttpServer()).get(
+      '/comparison-options/recent'
+    )
+
+    expect(response.statusCode).toBe(401)
   })
 
   test('[GET] /comparisons with invalid page', async () => {

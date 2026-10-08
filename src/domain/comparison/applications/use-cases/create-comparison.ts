@@ -4,6 +4,7 @@ import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { LlmPurpose } from '@/domain/recommendations/entities/enums/llm-purpose'
 import { LlmLog } from '@/domain/recommendations/entities/llm-log'
 import { LlmLogsRepository } from '@/domain/recommendations/applications/repositories/llm-logs-repository'
+import { InvestmentGoal } from '@/domain/portfolio/entities/enums/investment-goal'
 import { DataSource } from '@/domain/shared/enums/data-source'
 import { Comparison } from '../../entities/comparison'
 import { ComparisonOption } from '../../entities/comparison-option'
@@ -21,6 +22,8 @@ interface CreateComparisonUseCaseRequest {
   userId: string
   amount: Decimal
   horizonMonths: number
+  /** Para que serve este dinheiro (opcional). */
+  goal?: InvestmentGoal | null
   input: ComparisonInput
 }
 
@@ -45,6 +48,7 @@ export class CreateComparisonUseCase {
     userId,
     amount,
     horizonMonths,
+    goal,
     input,
   }: CreateComparisonUseCaseRequest): Promise<CreateComparisonUseCaseResponse> {
     const userUniqueId = new UniqueEntityId(userId)
@@ -87,6 +91,7 @@ export class CreateComparisonUseCase {
       userId: userUniqueId,
       amount,
       horizonMonths,
+      goal,
     })
 
     const options = optionInputs.map((optionInput) =>

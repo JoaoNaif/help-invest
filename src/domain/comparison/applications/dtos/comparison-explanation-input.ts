@@ -11,6 +11,8 @@ import { Liquidity } from '@/domain/shared/enums/liquidity'
  * Só o necessário (LGPD): sem renda, reserva, CNPJ nem ids de usuário.
  */
 export interface ExplanationOption {
+  /** O LLM devolve este id para apontar a opção indicada e os prós/contras. */
+  optionId: string
   /** 1 = maior taxa líquida. */
   rank: number
   assetType: AssetType
@@ -31,6 +33,11 @@ export interface ComparisonExplanationInput {
   options: ExplanationOption[]
   /** Premissas do cálculo (índices, prazos, alíquotas, notas). */
   assumptions: Record<string, unknown>
+  /**
+   * Objetivo que vale para esta explicação: o da comparação, se houver;
+   * senão o do perfil. `null` = nenhum informado (indicar pela taxa líquida).
+   */
+  goal: InvestmentGoal | null
   investor: {
     goal: InvestmentGoal
     riskTolerance: RiskTolerance

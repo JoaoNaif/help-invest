@@ -46,6 +46,30 @@ export class PrismaComparisonsRepository implements ComparisonsRepository {
     return options.map(PrismaComparisonOptionMapper.toDomain)
   }
 
+  async findOptionsByComparisonIds(
+    comparisonIds: string[]
+  ): Promise<ComparisonOption[]> {
+    const options = await this.prisma.comparisonOption.findMany({
+      where: { comparisonId: { in: comparisonIds } },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    return options.map(PrismaComparisonOptionMapper.toDomain)
+  }
+
+  async findRecentOptionsByUserId(
+    userId: string,
+    limit: number
+  ): Promise<ComparisonOption[]> {
+    const options = await this.prisma.comparisonOption.findMany({
+      where: { comparison: { userId } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    return options.map(PrismaComparisonOptionMapper.toDomain)
+  }
+
   async create(
     comparison: Comparison,
     options: ComparisonOption[]

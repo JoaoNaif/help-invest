@@ -29,7 +29,7 @@ export class ListComparisonsController {
     })
 
     return {
-      comparisons: result.value.comparisons.map(ComparisonPresenter.toHTTP),
+      comparisons: result.value.comparisons.map(ComparisonPresenter.summaryToHTTP),
     }
   }
 }

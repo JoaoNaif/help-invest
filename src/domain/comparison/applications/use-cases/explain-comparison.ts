@@ -7,6 +7,7 @@ import { LlmPurpose } from '@/domain/recommendations/entities/enums/llm-purpose'
 import { LlmLog } from '@/domain/recommendations/entities/llm-log'
 import { ComparisonOption } from '../../entities/comparison-option'
 import { ComparisonStatus } from '../../entities/enums/comparison-status'
+import { ComparisonExplanation } from '../dtos/comparison-explanation'
 import {
   ComparisonExplanationInput,
   ExplanationOption,
@@ -16,6 +17,7 @@ import { InvalidComparisonStatusError } from '../errors/invalid-comparison-statu
 import { LlmUnavailableError } from '../errors/llm-unavailable-error'
 import { LlmGateway } from '../gateways/llm-gateway'
 import { toExplanationLogResponse } from '../mappers/explanation-log-response'
+import { sanitizeExplanation } from '../mappers/sanitize-explanation'
 import { ComparisonsRepository } from '../repositories/comparisons-repository'
 
 interface ExplainComparisonUseCaseRequest {
@@ -29,7 +31,7 @@ type ExplainComparisonUseCaseResponse = Either<
   | InvalidComparisonStatusError
   | LlmUnavailableError
   | ExplanationFailedError,
-  { explanation: string }
+  { explanation: ComparisonExplanation }
 >
 
 /**
@@ -78,6 +80,8 @@ export class ExplainComparisonUseCase {
       horizonMonths: comparison.horizonMonths,
       options: rank(options),
       assumptions: comparison.assumptions ?? {},
+      // O objetivo da comparação pesa mais que o do perfil.
+      goal: comparison.goal ?? profile?.goal ?? null,
       investor: profile
         ? {
             goal: profile.goal,
@@ -93,7 +97,15 @@ export class ExplainComparisonUseCase {
       return left(result.value)
     }
 
-    const { call, explanation } = result.value
+    const { call } = result.value
+
+    // O LLM pode devolver id inventado: só vale o que existe nesta comparação.
+    const explanation = result.value.explanation
+      ? sanitizeExplanation(
+          result.value.explanation,
+          options.map((option) => option.id.toString())
+        )
+      : null
 
     await this.llmLogsRepository.create(
       LlmLog.create({
@@ -108,7 +120,7 @@ export class ExplainComparisonUseCase {
       })
     )
 
-    if (!explanation?.trim()) {
+    if (!explanation) {
       return left(new ExplanationFailedError())
     }
 
@@ -120,6 +132,7 @@ function rank(options: ComparisonOption[]): ExplanationOption[] {
   return [...options]
     .sort((a, b) => b.netAnnualRate!.comparedTo(a.netAnnualRate!))
     .map((option, index) => ({
+      optionId: option.id.toString(),
       rank: index + 1,
       assetType: option.assetType,
       issuerName: option.issuerName,

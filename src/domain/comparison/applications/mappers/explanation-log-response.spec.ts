@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { makeExplanation } from 'test/factories/make-explanation'
 import {
   readExplanation,
   toExplanationLogResponse,
@@ -6,14 +7,28 @@ import {
 
 describe('Explanation Log Response', () => {
   it('should read back the explanation it wrote', () => {
-    const response = toExplanationLogResponse('Texto', { id: 'msg_1' })
+    const explanation = makeExplanation({
+      bestOptionId: 'a',
+      bestReason: 'Combina com o objetivo.',
+      options: [{ optionId: 'a', pros: ['Liquidez'], cons: ['Taxa menor'] }],
+    })
 
-    expect(readExplanation(response)).toBe('Texto')
+    const response = toExplanationLogResponse(explanation, { id: 'msg_1' })
+
+    expect(readExplanation(response)).toEqual(explanation)
   })
 
   it.each([
-    ['empty text', toExplanationLogResponse('  ', {})],
-    ['null text', toExplanationLogResponse(null, {})],
+    [
+      'empty summary',
+      toExplanationLogResponse(makeExplanation({ summary: '  ' }), {}),
+    ],
+    ['null explanation', toExplanationLogResponse(null, {})],
+    ['legacy plain text', { explanation: 'Texto corrido antigo', raw: {} }],
+    [
+      'malformed options',
+      { explanation: { ...makeExplanation(), options: [{ optionId: 1 }] } },
+    ],
     ['raw provider format', { content: [{ type: 'text', text: 'x' }] }],
     ['not an object', 'texto solto'],
     ['null', null],

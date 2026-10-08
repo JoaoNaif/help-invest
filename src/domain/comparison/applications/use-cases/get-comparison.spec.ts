@@ -10,6 +10,8 @@ import { makeLlmLog } from 'test/factories/make-llm-log'
 import { InMemoryComparisonsRepository } from 'test/repositories/in-memory-comparisons-repository'
 import { InMemoryLlmLogsRepository } from 'test/repositories/in-memory-llm-logs-repository'
 import { Comparison } from '../../entities/comparison'
+import { makeExplanation } from 'test/factories/make-explanation'
+import { ComparisonExplanation } from '../dtos/comparison-explanation'
 import { toExplanationLogResponse } from '../mappers/explanation-log-response'
 import { GetComparisonUseCase } from './get-comparison'
 
@@ -38,7 +40,7 @@ async function createComparison({ evaluated = true } = {}) {
 
 async function logExplanation(
   comparison: Comparison,
-  explanation: string | null,
+  explanation: ComparisonExplanation | null,
   createdAt: Date
 ) {
   await llmLogsRepository.create(
@@ -91,28 +93,48 @@ describe('Get Comparison', () => {
 
   it('should return the latest explanation', async () => {
     const { comparison } = await createComparison()
-    await logExplanation(comparison, 'Antiga', new Date('2026-10-01'))
-    await logExplanation(comparison, 'Mais nova', new Date('2026-10-05'))
+    await logExplanation(
+      comparison,
+      makeExplanation({ summary: 'Antiga' }),
+      new Date('2026-10-01')
+    )
+    await logExplanation(
+      comparison,
+      makeExplanation({ summary: 'Mais nova' }),
+      new Date('2026-10-05')
+    )
 
     const result = await execute(comparison)
 
-    expect(result.isRight() && result.value.explanation).toBe('Mais nova')
+    expect(result.isRight() && result.value.explanation?.summary).toBe(
+      'Mais nova'
+    )
   })
 
   it('should skip failed explanation attempts', async () => {
     const { comparison } = await createComparison()
-    await logExplanation(comparison, 'Válida', new Date('2026-10-01'))
+    await logExplanation(
+      comparison,
+      makeExplanation({ summary: 'Válida' }),
+      new Date('2026-10-01')
+    )
     await logExplanation(comparison, null, new Date('2026-10-05'))
 
     const result = await execute(comparison)
 
-    expect(result.isRight() && result.value.explanation).toBe('Válida')
+    expect(result.isRight() && result.value.explanation?.summary).toBe(
+      'Válida'
+    )
   })
 
   it('should ignore extraction logs and other comparisons', async () => {
     const { comparison } = await createComparison()
     const other = await createComparison()
-    await logExplanation(other.comparison, 'De outra', new Date('2026-10-05'))
+    await logExplanation(
+      other.comparison,
+      makeExplanation({ summary: 'De outra' }),
+      new Date('2026-10-05')
+    )
     await llmLogsRepository.create(
       makeLlmLog({
         purpose: LlmPurpose.EXTRACTION,

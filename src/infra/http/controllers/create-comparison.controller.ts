@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { ExtractionFailedError } from '@/domain/comparison/applications/errors/extraction-failed-error'
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
 import { NoOptionsFoundError } from '@/domain/comparison/applications/errors/no-options-found-error'
+import { InvestmentGoal } from '@/domain/portfolio/entities/enums/investment-goal'
 import { CreateComparisonUseCase } from '@/domain/comparison/applications/use-cases/create-comparison'
 import { CurrentUser } from '@/infra/auth/current-user-decorator'
 import { UserPayload } from '@/infra/auth/jwt-strategy'
@@ -30,6 +31,7 @@ const MAX_TEXT_LENGTH = 20_000
 const createComparisonBodySchema = z.object({
   amount: positiveDecimalSchema,
   horizonMonths: z.number().int().positive(),
+  goal: z.nativeEnum(InvestmentGoal).nullish(),
   input: z.discriminatedUnion('type', [
     z.object({
       type: z.literal('manual'),

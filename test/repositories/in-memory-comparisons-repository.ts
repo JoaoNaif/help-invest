@@ -26,6 +26,23 @@ export class InMemoryComparisonsRepository implements ComparisonsRepository {
     )
   }
 
+  async findOptionsByComparisonIds(comparisonIds: string[]) {
+    return this.options.filter((option) =>
+      comparisonIds.includes(option.comparisonId.toString())
+    )
+  }
+
+  async findRecentOptionsByUserId(userId: string, limit: number) {
+    const comparisonIds = this.items
+      .filter((item) => item.userId.toString() === userId)
+      .map((item) => item.id.toString())
+
+    return this.options
+      .filter((option) => comparisonIds.includes(option.comparisonId.toString()))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit)
+  }
+
   async create(comparison: Comparison, options: ComparisonOption[]) {
     this.items.push(comparison)
     this.options.push(...options)

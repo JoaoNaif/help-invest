@@ -6,6 +6,7 @@ import { LlmPurpose } from '@/domain/recommendations/entities/enums/llm-purpose'
 import { Comparison } from '../../entities/comparison'
 import { ComparisonOption } from '../../entities/comparison-option'
 import { ComparisonStatus } from '../../entities/enums/comparison-status'
+import { ComparisonExplanation } from '../dtos/comparison-explanation'
 import { readExplanation } from '../mappers/explanation-log-response'
 import { ComparisonsRepository } from '../repositories/comparisons-repository'
 
@@ -21,7 +22,7 @@ type GetComparisonUseCaseResponse = Either<
     /** Avaliada (DONE): da maior para a menor taxa líquida. */
     options: ComparisonOption[]
     /** Última explicação válida gerada (UC-17), se houver. */
-    explanation: string | null
+    explanation: ComparisonExplanation | null
   }
 >
 

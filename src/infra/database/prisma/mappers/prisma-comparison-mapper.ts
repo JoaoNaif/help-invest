@@ -18,6 +18,7 @@ export class PrismaComparisonMapper {
         chosenOptionId: raw.chosenOptionId
           ? new UniqueEntityId(raw.chosenOptionId)
           : null,
+        goal: raw.goal,
         createdAt: raw.createdAt,
         updatedAt: raw.updatedAt,
       },
@@ -38,6 +39,7 @@ export class PrismaComparisonMapper {
         ? (comparison.assumptions as Prisma.InputJsonObject)
         : Prisma.DbNull,
       chosenOptionId: comparison.chosenOptionId?.toString() ?? null,
+      goal: comparison.goal,
       createdAt: comparison.createdAt,
       updatedAt: comparison.updatedAt,
     }

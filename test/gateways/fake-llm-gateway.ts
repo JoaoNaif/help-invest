@@ -1,4 +1,5 @@
 import { Either, left, right } from '@/core/either'
+import { ComparisonExplanation } from '@/domain/comparison/applications/dtos/comparison-explanation'
 import { ComparisonExplanationInput } from '@/domain/comparison/applications/dtos/comparison-explanation-input'
 import { ComparisonOptionInput } from '@/domain/comparison/applications/dtos/comparison-option-input'
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
@@ -15,7 +16,12 @@ import {
  */
 export class FakeLlmGateway implements LlmGateway {
   public extractedOptions: ComparisonOptionInput[] | null = []
-  public explanation: string | null = 'A opção 1 rende mais líquido.'
+  public explanation: ComparisonExplanation | null = {
+    summary: 'A opção 1 rende mais líquido.',
+    bestOptionId: null,
+    bestReason: null,
+    options: [],
+  }
   public unavailable = false
   public calls: ExtractionSource[] = []
   public explainCalls: ComparisonExplanationInput[] = []
@@ -57,7 +63,7 @@ export class FakeLlmGateway implements LlmGateway {
       call: {
         model: 'fake-model',
         prompt: `explain: ${JSON.stringify(input)}`,
-        rawResponse: { text: this.explanation ?? '' },
+        rawResponse: { explanation: this.explanation },
         inputTokens: 300,
         outputTokens: 200,
       },

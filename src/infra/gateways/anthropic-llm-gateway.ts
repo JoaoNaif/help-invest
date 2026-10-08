@@ -37,14 +37,25 @@ Regras:
 - "rawInput": o trecho original de onde a opção saiu.
 - Não calcule rentabilidade, imposto nem comparações.`
 
-const EXPLANATION_SYSTEM_PROMPT = `Você explica, em português do Brasil e em linguagem simples, o resultado de uma comparação de investimentos de renda fixa para uma pessoa física.
+const EXPLANATION_SYSTEM_PROMPT = `Você ajuda uma pessoa física a escolher entre opções de renda fixa, em português do Brasil e em linguagem simples (ela entende de investir, mas não é especialista).
 
-Regras:
-- Os números e alertas já foram calculados por um motor de regras. Use-os exatamente como recebidos; nunca recalcule, arredonde, converta nem invente valores.
-- Explique qual opção ficou em 1º lugar e por quê, depois destaque os alertas de cada opção (liquidez, risco do emissor, limite do FGC, pegadinhas) e o que eles significam na prática.
-- Se houver dados do investidor (objetivo, tolerância a risco, horizonte), relacione-os às opções.
-- Seja direto: até 250 palavras, sem títulos, sem tabelas, sem emojis.
-- É informação, não recomendação personalizada de investimento. Termine com uma frase curta lembrando que a decisão é do investidor.`
+Os números e alertas já foram calculados por um motor de regras. Use-os exatamente como recebidos; nunca recalcule, arredonde, converta nem invente valores ou fatos sobre os emissores.
+
+Devolva:
+- "summary": 2 a 3 frases com o resultado (qual ficou em 1º lugar e o ponto de atenção mais importante).
+- "bestOptionId": o "optionId" da opção que mais combina com o objetivo, ou null se nenhuma se destaca.
+- "bestReason": por que essa opção combina com o objetivo (1 a 2 frases). null se bestOptionId for null.
+- "options": uma entrada para CADA opção recebida, com o "optionId" dela, "pros" (2 a 3 itens curtos) e "cons" (2 a 3 itens curtos).
+
+Como escolher a opção indicada:
+- Se "goal" vier preenchido, ele manda: RESERVE (reserva: liquidez e segurança pesam mais que taxa), RETIREMENT (aposentadoria: longo prazo, proteção da inflação), PURCHASE (compra planejada: o vencimento precisa caber no prazo), GROWTH (crescimento: taxa líquida pesa mais, com risco aceitável).
+- Sem "goal", use o perfil do investidor (tolerância a risco, horizonte); sem perfil, indique pela maior taxa líquida.
+- Os alertas contam: não indique uma opção com alerta DANGER se houver alternativa razoável.
+
+Estilo:
+- Itens curtos, objetivos, sem emojis, sem repetir o texto dos alertas palavra por palavra.
+- Fale em "combina mais com o seu objetivo", nunca em ordem do tipo "você deve investir".
+- Não inclua aviso legal nos textos: a tela já mostra que é informação e não recomendação.`
 
 const extractionJsonSchema = {
   type: 'object',
@@ -90,6 +101,30 @@ const extractionJsonSchema = {
   },
 } as const
 
+const explanationJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'bestOptionId', 'bestReason', 'options'],
+  properties: {
+    summary: { type: 'string' },
+    bestOptionId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    bestReason: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    options: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['optionId', 'pros', 'cons'],
+        properties: {
+          optionId: { type: 'string' },
+          pros: { type: 'array', items: { type: 'string' } },
+          cons: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+  },
+} as const
+
 // A saída do LLM nunca é confiada: passa por aqui antes de virar domínio.
 const extractedOptionsSchema = z.object({
   options: z.array(
@@ -115,6 +150,19 @@ const extractedOptionsSchema = z.object({
       graceDays: z.number().int().nonnegative().nullable(),
       minAmount: z.number().nonnegative().nullable(),
       rawInput: z.string().nullable(),
+    })
+  ),
+})
+
+const explanationSchema = z.object({
+  summary: z.string().trim().min(1),
+  bestOptionId: z.string().nullable(),
+  bestReason: z.string().nullable(),
+  options: z.array(
+    z.object({
+      optionId: z.string(),
+      pros: z.array(z.string()),
+      cons: z.array(z.string()),
     })
   ),
 })
@@ -181,6 +229,7 @@ export class AnthropicLlmGateway implements LlmGateway {
       system: EXPLANATION_SYSTEM_PROMPT,
       content: [{ type: 'text', text: userText }],
       maxTokens: EXPLANATION_MAX_TOKENS,
+      format: explanationJsonSchema,
     })
 
     if (response.isLeft()) {
@@ -188,11 +237,9 @@ export class AnthropicLlmGateway implements LlmGateway {
     }
 
     const message = response.value
-    const text = message.stop_reason === 'refusal' ? '' : readText(message)
-
     return right({
       call: this.toCall(message, `${EXPLANATION_SYSTEM_PROMPT}\n\n${userText}`),
-      explanation: text.trim() ? text.trim() : null,
+      explanation: this.parseExplanation(message),
     })
   }
 
@@ -205,7 +252,7 @@ export class AnthropicLlmGateway implements LlmGateway {
     system: string
     content: Anthropic.ContentBlockParam[]
     maxTokens: number
-    format?: typeof extractionJsonSchema
+    format?: Record<string, unknown>
   }): Promise<Either<LlmUnavailableError, Anthropic.Message>> {
     try {
       const message = await this.client.messages.create({
@@ -233,20 +280,28 @@ export class AnthropicLlmGateway implements LlmGateway {
     }
   }
 
-  private parseOptions(message: Anthropic.Message) {
+  private parseExplanation(message: Anthropic.Message) {
+    const json = this.readJson(message)
+    const parsed = explanationSchema.safeParse(json)
+
+    return parsed.success ? parsed.data : null
+  }
+
+  /** Só uma resposta que terminou normalmente vale (nada cortado nem recusado). */
+  private readJson(message: Anthropic.Message): unknown {
     if (message.stop_reason !== 'end_turn') {
       return null
     }
 
-    let json: unknown
-
     try {
-      json = JSON.parse(readText(message))
+      return JSON.parse(readText(message))
     } catch {
       return null
     }
+  }
 
-    const parsed = extractedOptionsSchema.safeParse(json)
+  private parseOptions(message: Anthropic.Message) {
+    const parsed = extractedOptionsSchema.safeParse(this.readJson(message))
 
     if (!parsed.success) {
       return null

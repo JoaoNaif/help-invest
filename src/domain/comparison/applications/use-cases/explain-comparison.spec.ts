@@ -9,6 +9,7 @@ import { LlmPurpose } from '@/domain/recommendations/entities/enums/llm-purpose'
 import { AlertSeverity } from '@/domain/shared/enums/alert-severity'
 import { makeComparison } from 'test/factories/make-comparison'
 import { makeComparisonOption } from 'test/factories/make-comparison-option'
+import { makeExplanation } from 'test/factories/make-explanation'
 import { makeInvestorProfile } from 'test/factories/make-investor-profile'
 import { FakeLlmGateway } from 'test/gateways/fake-llm-gateway'
 import { InMemoryComparisonsRepository } from 'test/repositories/in-memory-comparisons-repository'
@@ -35,8 +36,12 @@ const fgcAlert = {
 }
 
 /** Comparação já avaliada (DONE): CDB 14,08% e LCI 13,708%. */
-async function createEvaluatedComparison() {
-  const comparison = makeComparison({ userId, amount: new Decimal('10000') })
+async function createEvaluatedComparison(goal: InvestmentGoal | null = null) {
+  const comparison = makeComparison({
+    userId,
+    amount: new Decimal('10000'),
+    goal,
+  })
   const lci = makeComparisonOption({
     comparisonId: comparison.id,
     issuerName: 'Banco B',
@@ -83,9 +88,7 @@ describe('Explain Comparison', () => {
     const result = await execute(comparison)
 
     expect(result.isRight()).toBe(true)
-    expect(result.value).toEqual({
-      explanation: 'A opção 1 rende mais líquido.',
-    })
+    expect(result.value).toEqual({ explanation: makeExplanation() })
   })
 
   it('should send the already computed numbers, ranked, as exact text', async () => {
@@ -120,6 +123,7 @@ describe('Explain Comparison', () => {
     await execute(comparison)
 
     const [input] = fakeLlmGateway.explainCalls
+    expect(input.goal).toBe(InvestmentGoal.PURCHASE)
     expect(input.investor).toEqual({
       goal: InvestmentGoal.PURCHASE,
       riskTolerance: RiskTolerance.LOW,
@@ -132,6 +136,90 @@ describe('Explain Comparison', () => {
     expect(sent).not.toContain(userId.toString())
   })
 
+  it('should send the option ids so the LLM can point at them', async () => {
+    const comparison = await createEvaluatedComparison()
+
+    await execute(comparison)
+
+    const ids = comparisonsRepository.options.map((o) => o.id.toString())
+    const sent = fakeLlmGateway.explainCalls[0].options.map((o) => o.optionId)
+
+    expect(sent.sort()).toEqual(ids.sort())
+  })
+
+  describe('goal', () => {
+    it('should use the goal of the comparison over the one of the profile', async () => {
+      await investorProfilesRepository.create(
+        makeInvestorProfile({ userId, goal: InvestmentGoal.GROWTH })
+      )
+      const comparison = await createEvaluatedComparison(
+        InvestmentGoal.RESERVE
+      )
+
+      await execute(comparison)
+
+      expect(fakeLlmGateway.explainCalls[0].goal).toBe(InvestmentGoal.RESERVE)
+    })
+
+    it('should fall back to the goal of the profile', async () => {
+      await investorProfilesRepository.create(
+        makeInvestorProfile({ userId, goal: InvestmentGoal.RETIREMENT })
+      )
+      const comparison = await createEvaluatedComparison()
+
+      await execute(comparison)
+
+      expect(fakeLlmGateway.explainCalls[0].goal).toBe(
+        InvestmentGoal.RETIREMENT
+      )
+    })
+
+    it('should send no goal when there is none', async () => {
+      const comparison = await createEvaluatedComparison()
+
+      await execute(comparison)
+
+      expect(fakeLlmGateway.explainCalls[0].goal).toBeNull()
+    })
+  })
+
+  describe('indication', () => {
+    it('should keep the indicated option and its pros and cons', async () => {
+      const comparison = await createEvaluatedComparison()
+      const [best] = comparisonsRepository.options
+      const explanation = makeExplanation({
+        bestOptionId: best.id.toString(),
+        bestReason: 'Combina com o objetivo.',
+        options: [
+          { optionId: best.id.toString(), pros: ['Liquidez'], cons: ['Taxa'] },
+        ],
+      })
+      fakeLlmGateway.explanation = explanation
+
+      const result = await execute(comparison)
+
+      expect(result.value).toEqual({ explanation })
+    })
+
+    it('should discard ids the LLM made up, in the answer and in the log', async () => {
+      const comparison = await createEvaluatedComparison()
+      fakeLlmGateway.explanation = makeExplanation({
+        bestOptionId: 'inventado',
+        bestReason: 'Motivo.',
+        options: [{ optionId: 'inventado', pros: ['x'], cons: ['y'] }],
+      })
+
+      const result = await execute(comparison)
+
+      expect(result.isRight() && result.value.explanation).toEqual(
+        makeExplanation()
+      )
+      expect(llmLogsRepository.items[0].response).toEqual(
+        expect.objectContaining({ explanation: makeExplanation() })
+      )
+    })
+  })
+
   it('should log the call linked to the comparison', async () => {
     const comparison = await createEvaluatedComparison()
 
@@ -142,13 +230,13 @@ describe('Explain Comparison', () => {
     expect(log.userId.equals(userId)).toBe(true)
     expect(log.comparisonId?.equals(comparison.id)).toBe(true)
     expect(log.response).toEqual({
-      explanation: 'A opção 1 rende mais líquido.',
-      raw: { text: 'A opção 1 rende mais líquido.' },
+      explanation: makeExplanation(),
+      raw: { explanation: makeExplanation() },
     })
   })
 
   it('should log the call even when the explanation comes back empty', async () => {
-    fakeLlmGateway.explanation = '   '
+    fakeLlmGateway.explanation = makeExplanation({ summary: '   ' })
     const comparison = await createEvaluatedComparison()
 
     const result = await execute(comparison)

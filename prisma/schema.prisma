@@ -183,6 +183,8 @@ model Comparison {
   status         ComparisonStatus @default(DRAFT)
   assumptions    Json?
   chosenOptionId String?          @unique @db.Uuid
+  /// Para que serve este dinheiro; pesa mais que o objetivo do perfil na explicação.
+  goal           InvestmentGoal?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

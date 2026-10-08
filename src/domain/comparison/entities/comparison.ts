@@ -2,6 +2,7 @@ import Decimal from 'decimal.js'
 import { Entity } from '@/core/entities/entity'
 import { UniqueEntityId } from '@/core/entities/unique-entity-id'
 import { Optional } from '@/core/types/optional'
+import { InvestmentGoal } from '@/domain/portfolio/entities/enums/investment-goal'
 import { ComparisonStatus } from './enums/comparison-status'
 
 /** Premissas usadas no cálculo (CDI do dia, alíquota de IR, data...). */
@@ -14,6 +15,8 @@ export interface ComparisonProps {
   status: ComparisonStatus
   assumptions: ComparisonAssumptions | null
   chosenOptionId: UniqueEntityId | null
+  /** Para que serve este dinheiro; pesa mais que o objetivo do perfil na explicação. */
+  goal: InvestmentGoal | null
   createdAt: Date
   updatedAt: Date
 }
@@ -58,6 +61,10 @@ export class Comparison extends Entity<ComparisonProps> {
     return this.props.chosenOptionId
   }
 
+  get goal() {
+    return this.props.goal
+  }
+
   get createdAt() {
     return this.props.createdAt
   }
@@ -99,7 +106,12 @@ export class Comparison extends Entity<ComparisonProps> {
   static create(
     props: Optional<
       ComparisonProps,
-      'status' | 'assumptions' | 'chosenOptionId' | 'createdAt' | 'updatedAt'
+      | 'status'
+      | 'assumptions'
+      | 'chosenOptionId'
+      | 'goal'
+      | 'createdAt'
+      | 'updatedAt'
     >,
     id?: UniqueEntityId
   ) {
@@ -111,6 +123,7 @@ export class Comparison extends Entity<ComparisonProps> {
         status: props.status ?? ComparisonStatus.DRAFT,
         assumptions: props.assumptions ?? null,
         chosenOptionId: props.chosenOptionId ?? null,
+        goal: props.goal ?? null,
         createdAt: props.createdAt ?? now,
         updatedAt: props.updatedAt ?? now,
       },

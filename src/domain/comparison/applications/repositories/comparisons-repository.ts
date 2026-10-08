@@ -18,6 +18,15 @@ export abstract class ComparisonsRepository {
   abstract findOptionsByComparisonId(
     comparisonId: string
   ): Promise<ComparisonOption[]>
+  /** Opções de várias comparações de uma vez (evita uma consulta por item). */
+  abstract findOptionsByComparisonIds(
+    comparisonIds: string[]
+  ): Promise<ComparisonOption[]>
+  /** Opções de todas as comparações do usuário, das mais novas para as mais antigas. */
+  abstract findRecentOptionsByUserId(
+    userId: string,
+    limit: number
+  ): Promise<ComparisonOption[]>
   abstract create(
     comparison: Comparison,
     options: ComparisonOption[]
