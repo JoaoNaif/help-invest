@@ -25,6 +25,7 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 | [`docs/07`](./docs/07-modelo-de-dados.md) | modelo de dados: tabelas, campos, enums, ordem de construção |
 | [`docs/08`](./docs/08-casos-de-uso.md) | use-cases essenciais: entrada, saída, erros, ports, ordem |
 | [`docs/09`](./docs/09-api-referencia.md) | contrato HTTP para o front (rotas, erros, cookies/CORS) |
+| [`docs/10`](./docs/10-analise-de-acoes.md) | análise de ações: fontes, regras, preço teto, consenso |
 
 ## Princípios do produto (valem para qualquer código)
 
@@ -95,7 +96,7 @@ Compartilhado entre contextos: `src/domain/shared/` — enums comuns, `Alert` (f
 alerta), `constants/` (normas com **fonte e data**, ex.: limite do FGC) e `format.ts`
 (`formatBRL`/`formatPercent` direto do `Decimal`).
 
-Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`.
+Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`, `stock-analysis`.
 Portas previstas: `LlmGateway`, `MarketDataProvider`, repositórios.
 
 ### Quando criar use-case
@@ -182,6 +183,11 @@ vale o `UnavailableLlmGateway`, 503). e2e usam `FakeLlmGateway`.
 **Dados de mercado:** `BcbMarketDataProvider` + `IndicatorsSyncJob` (`src/infra/jobs/`, ao subir e a
 cada 6 h; desligável com `INDICATORS_SYNC_ENABLED=false`). Por que assim e o que fazer se o
 hosting mudar: [`docs/05`](./docs/05-decisoes.md) (entrada "Dados de mercado").
+
+**Análise de ações (`stock-analysis`):** `POST/GET /stock-analyses`, com `YahooStockDataProvider` (fonte não
+oficial; `interval=1d` é obrigatório, com `1mo` o Yahoo perde proventos), serviços de regra
+(`DividendAnalyzer`, `CeilingPriceCalculator`, `ValuationRules`, `StockRules`, `StockPersonalFit`) e
+concorrentes fixos (só bancos). Detalhes e pendências em [`docs/10`](./docs/10-analise-de-acoes.md).
 
 **Pendências:** nenhuma de infra do MVP. Tabelas **novas**
 continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do

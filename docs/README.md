@@ -15,6 +15,7 @@ Pasta de memória do projeto. Serve para retomar o contexto depois de muito temp
 | [07-modelo-de-dados.md](07-modelo-de-dados.md) | Tabelas do MVP: o que cada campo faz e onde se aplica; por que existe `Session` |
 | [08-casos-de-uso.md](08-casos-de-uso.md) | Use-cases essenciais do MVP: entrada, saída, erros, ports, ordem de implementação |
 | [09-api-referencia.md](09-api-referencia.md) | Contrato HTTP para o front: rotas, corpos, erros, cookies/CORS, fluxo do comparador |
+| [10-analise-de-acoes.md](10-analise-de-acoes.md) | Análise de ações: dados, regras (dividendos, preço teto, valuation), consenso, proposta de tabela |
 
 ## Convenções
 

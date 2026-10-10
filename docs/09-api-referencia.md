@@ -62,7 +62,7 @@ Validação (**400**): `{ "message": "Validation failed", "statusCode": 400, "er
 | 404 | recurso não existe (ou perfil ainda não preenchido) |
 | 409 | ação inválida para o status atual da comparação, e-mail já cadastrado |
 | 422 | entrada que o sistema não consegue processar (nenhuma opção encontrada, tipo de ativo fora do comparador) |
-| 429 | limite de requisições (ver §9) |
+| 429 | limite de requisições (ver §10) |
 | 503 | LLM ou dados de mercado indisponíveis — **tentar de novo mais tarde** |
 
 ## 4. Contas e sessão
@@ -180,7 +180,109 @@ POST /comparisons ──► DRAFT ──(PUT /options, quantas vezes quiser)─�
 6. Histórico → `GET /comparisons` (já traz `optionsCount` e `topOption`).
 7. Opções recentes para preencher o formulário → `GET /comparison-options/recent`.
 
-## 8. Enums (valores exatos)
+## 8. Análise de ações
+
+O usuário informa **uma ação** ou **uma ação com outra** (até 2) e, opcionalmente, quanto pretende investir em cada. O backend busca os dados, calcula tudo em código e cruza com a carteira e o perfil. **Não há LLM nesta rota** (a explicação em texto vem depois).
+
+> **Regras de exibição**
+> - É **informação, não recomendação**. Mostre o aviso fixo (regra 5 da seção 1) e nunca rotule uma ação como "compre" ou "venda".
+> - Nesta seção os valores saem como `string` **com 2 casas fixas** (`"8.00"`, `"33.33"`), diferente da regra 2 da seção 1.
+> - `null` significa **dado indisponível**, nunca zero. Mostre "—" ou "sem dado".
+> - Cada item traz `source` (fonte) e `priceDate` (data da cotação): exiba junto do preço.
+
+### Rotas
+
+| Rota | Corpo / query | Resposta |
+|---|---|---|
+| `POST /stock-analyses` | `{ items: [{ ticker, amount? }] }` — 1 ou 2 itens; `amount` opcional (> 0) | `201 { analysis }` |
+| `GET /stock-analyses/:id` | — | `200 { analysis }` |
+| `GET /stock-analyses?page=1` | `page` ≥ 1 (20 por página, mais recentes primeiro) | `200 { analyses: [analysis] }` |
+
+Erros do `POST`: `400` corpo fora do formato (0 ou 3+ itens, `amount` ≤ 0) · `404` ticker não encontrado · `422` tickers repetidos · `503` fonte de dados fora do ar (tente de novo) · `429` limite (20/min). Do `GET :id`: `404` não existe · `403` é de outro usuário · `400` id inválido.
+
+`ticker` aceita minúsculas e espaços (`" bbas3 "` vira `BBAS3`). Uma análise leva ~3 s (consulta a ação e os concorrentes): mostre estado de carregamento.
+
+### Formato
+
+```jsonc
+{
+  "analysis": {
+    "id": "uuid",
+    "tickers": ["BBAS3", "ITUB4"],
+    "createdAt": "2026-10-09T21:00:00.000Z",
+    "result": {
+      "items": [ /* um por ticker, na ordem pedida */ {
+        "ticker": "BBAS3",
+        "name": "Banco do Brasil S.A.",
+        "sector": "Financial Services",       // string | null
+        "price": "24.64",                     // R$
+        "priceDate": "2026-10-09T21:31:30.000Z",
+        "plannedAmount": "5000.00",           // string | null (o que o usuário informou)
+        "source": "Yahoo Finance",
+        "fundamentals": {                     // todos string | null
+          "priceToEarnings": "11.46", "priceToBook": "0.77",
+          "earningsPerShare": "2.15", "bookValuePerShare": "31.88",
+          "returnOnEquity": "10.55"           // %
+        },
+        "dividends": {
+          "trailing12mPerShare": "0.65",      // R$ por ação, 12 meses, BRUTO
+          "trailing12mYield": "2.66",         // % (calculado por nós)
+          "averageAnnualPerShare": "1.63",    // string | null — média dos anos cobertos
+          "yearsCovered": 5, "yearsWithPayment": 5, "consistent": true,
+          "upcoming": { "exDate": "2026-12-01", "amountPerShare": "0.1053" } | null,
+          "dateKind": "EX"                    // sempre data EX, não data com
+        },
+        "ceilingPrices": [                    // pode vir vazio; um por método com dado
+          { "method": "BAZIN",  "value": "27.24", "upsidePercent": "10.55" },
+          { "method": "GRAHAM", "value": "39.27", "upsidePercent": "59.37" }
+        ],
+        "valuation": {
+          "group": "bancos",                  // string | null (sem grupo = sem comparação)
+          "priceToEarnings": { "value": "11.46", "peerMedian": "13.26", "diffPercent": "-13.57", "verdict": "FAIR" },
+          "priceToBook":     { "value": "0.77",  "peerMedian": "1.26",  "diffPercent": "-38.89", "verdict": "CHEAP" },
+          "peers": [ { "ticker": "ITUB4", "name": "…", "priceToEarnings": "12.19", "priceToBook": "2.55", "dividendYield": "6.14" } ],
+          "peersUnavailable": []              // concorrentes que a fonte não respondeu
+        },
+        "consensus": { "analystCount": 13, "buy": 2, "hold": 8, "sell": 3, "targetPrice": "24.82" } | null,
+        "alerts": [ { "code": "DIVIDENDS_BELOW_AVERAGE", "severity": "INFO", "message": "…" } ]
+      } ],
+      "alerts": [ /* da análise toda: perfil e combinação (ex.: SAME_SECTOR) */ ]
+    },
+    "assumptions": { /* premissas e fontes usadas; útil para uma tela "como calculamos" */ }
+  }
+}
+```
+
+### Como exibir
+
+- **Preço teto** (`ceilingPrices`): é **referência de método, não previsão**. Mostre sempre o nome do método e a premissa: *Bazin* = média de dividendos dos últimos anos ÷ 6%; *Graham* = √(22,5 × LPA × VPA). `upsidePercent` positivo = preço abaixo do teto. Lista vazia = sem dado suficiente (ex.: prejuízo).
+- **Valuation** (`verdict`): `CHEAP` / `FAIR` / `EXPENSIVE` comparado com a **mediana dos concorrentes** (±15% = na média); `UNAVAILABLE` = não comparável (prejuízo ou sem concorrentes). Mostre a tabela `peers` ao lado.
+- **Consenso** é a **tendência** do que os analistas dizem, não a opinião de um especialista: exiba sempre `analystCount` ("13 analistas"). `null` = sem cobertura.
+- **Dividendos:** valores **brutos** (IR do JCP não descontado) e na **data ex**; a data com é o dia útil anterior. `consistent: false` = não pagou em todos os anos cobertos. `yearsCovered` pode ser menor que 5 (histórico curto): mostre "baseado em N anos".
+- **Dois itens:** compare lado a lado. Se forem do mesmo setor, `result.alerts` traz `SAME_SECTOR`.
+- **Alertas:** mesmo formato dos demais (`code`, `severity`, `message`); o texto já vem em português.
+
+### Códigos de alerta desta seção
+
+| `code` | Onde | Quando |
+|---|---|---|
+| `STALE_PRICE` | item | cotação com mais de 5 dias |
+| `NO_PEERS` | item | ticker fora das listas de concorrentes |
+| `NEGATIVE_EARNINGS` | item | lucro por ação ≤ 0 |
+| `DIVIDEND_HISTORY_MISSING` · `NO_DIVIDENDS` · `DIVIDENDS_INCONSISTENT` · `DIVIDENDS_BELOW_AVERAGE` | item | histórico de proventos |
+| `ABOVE_CEILING` | item | preço acima de todos os tetos |
+| `NO_ANALYST_COVERAGE` · `LOW_ANALYST_COVERAGE` | item | consenso ausente ou com < 5 analistas |
+| `ALREADY_HOLDS` · `COMPANY_CONCENTRATION` · `SECTOR_CONCENTRATION` | item | já tem a ação / passa de 20% na empresa / de 35% no setor (depois do aporte) |
+| `SAME_SECTOR` | análise | duas ações do mesmo setor |
+| `PROFILE_MISSING` · `LOW_RESERVE_FOR_STOCKS` · `GOAL_IS_RESERVE` · `STOCKS_ABOVE_RISK_TOLERANCE` · `SHORT_HORIZON_FOR_STOCKS` | análise | perfil do investidor |
+
+### Limitações conhecidas
+
+- **Concorrentes** só existem para **bancos** (`BBAS3`, `ITUB4`, `BBDC4`, `SANB11`); outros setores saem com `valuation.group = null`.
+- A carteira reconhece uma ação pelo **ticker no nome** da posição (`assetType: "ACAO"`, `name: "ITUB4"` ou `"ITUB4 - Itaú"`).
+- A fonte (Yahoo Finance) é **não oficial**: pode ficar indisponível (`503`) ou trazer campos `null`.
+
+## 9. Enums (valores exatos)
 
 | Campo | Valores |
 |---|---|
@@ -192,13 +294,15 @@ POST /comparisons ──► DRAFT ──(PUT /options, quantas vezes quiser)─�
 | `status` (comparação) | `DRAFT` `CONFIRMED` `DONE` |
 | `source` | `MANUAL` `LLM_EXTRACTED` |
 | `severity` | `INFO` `WARNING` `DANGER` |
+| `verdict` (valuation) | `CHEAP` `FAIR` `EXPENSIVE` `UNAVAILABLE` |
+| `method` (preço teto) | `BAZIN` `GRAHAM` |
 
 Rótulos em português são responsabilidade do front (mapeie os valores acima).
 
-## 9. Limites de requisição (por IP, por minuto)
+## 10. Limites de requisição (por IP, por minuto)
 
-Geral 300 · `POST /accounts` 5 · `POST /sessions` 5 · `POST /sessions/refresh` 30 · `POST /comparisons` 10 · `POST /comparisons/:id/explanation` 10. Estouro → `429`; mostre mensagem amigável e peça para aguardar.
+Geral 300 · `POST /accounts` 5 · `POST /sessions` 5 · `POST /sessions/refresh` 30 · `POST /comparisons` 10 · `POST /comparisons/:id/explanation` 10 · `POST /stock-analyses` 20. Estouro → `429`; mostre mensagem amigável e peça para aguardar.
 
-## 10. Para subir o backend localmente
+## 11. Para subir o backend localmente
 
 `npm run services:up` (Postgres) → `npm run start:dev` (API em `:3333`). Ao subir, o backend sincroniza Selic/CDI/IPCA do Banco Central sozinho (leva alguns segundos na primeira vez; antes disso `evaluate` pode dar 503). Sem `ANTHROPIC_API_KEY` no `.env`, leitura de texto/print e explicação respondem 503 — a comparação com opções digitadas funciona normalmente.
