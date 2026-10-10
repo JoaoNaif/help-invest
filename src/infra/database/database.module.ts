@@ -6,6 +6,7 @@ import { IndicatorValuesRepository } from '@/domain/market-data/applications/rep
 import { InvestorProfilesRepository } from '@/domain/portfolio/applications/repositories/investor-profiles-repository'
 import { PositionsRepository } from '@/domain/portfolio/applications/repositories/positions-repository'
 import { LlmLogsRepository } from '@/domain/recommendations/applications/repositories/llm-logs-repository'
+import { StockAnalysesRepository } from '@/domain/stock-analysis/applications/repositories/stock-analyses-repository'
 import { PrismaService } from './prisma/prisma.service'
 import { PrismaComparisonsRepository } from './prisma/repositories/prisma-comparisons-repository'
 import { PrismaIndicatorValuesRepository } from './prisma/repositories/prisma-indicator-values-repository'
@@ -13,6 +14,7 @@ import { PrismaInvestorProfilesRepository } from './prisma/repositories/prisma-i
 import { PrismaLlmLogsRepository } from './prisma/repositories/prisma-llm-logs-repository'
 import { PrismaPositionsRepository } from './prisma/repositories/prisma-positions-repository'
 import { PrismaSessionsRepository } from './prisma/repositories/prisma-sessions-repository'
+import { PrismaStockAnalysesRepository } from './prisma/repositories/prisma-stock-analyses-repository'
 import { PrismaUsersRepository } from './prisma/repositories/prisma-users-repository'
 
 // Cada repositório (port do domain → adapter Prisma) entra aqui em `providers`
@@ -33,6 +35,10 @@ import { PrismaUsersRepository } from './prisma/repositories/prisma-users-reposi
     },
     { provide: ComparisonsRepository, useClass: PrismaComparisonsRepository },
     { provide: LlmLogsRepository, useClass: PrismaLlmLogsRepository },
+    {
+      provide: StockAnalysesRepository,
+      useClass: PrismaStockAnalysesRepository,
+    },
   ],
   exports: [
     PrismaService,
@@ -43,6 +49,7 @@ import { PrismaUsersRepository } from './prisma/repositories/prisma-users-reposi
     IndicatorValuesRepository,
     ComparisonsRepository,
     LlmLogsRepository,
+    StockAnalysesRepository,
   ],
 })
 export class DatabaseModule {}

@@ -75,6 +75,7 @@ enum ComparisonStatus {
 enum LlmPurpose {
   EXTRACTION
   EXPLANATION
+  STOCK_EXPLANATION
 }
 
 // ─── accounts ────────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ model User {
   investorProfile InvestorProfile?
   positions       Position[]
   comparisons     Comparison[]
+  stockAnalyses   StockAnalysis[]
   llmLogs         LlmLog[]
 
   @@map("users")
@@ -223,25 +225,50 @@ model ComparisonOption {
   @@map("comparison_options")
 }
 
+// ─── stock-analysis ──────────────────────────────────────────────────────────
+
+/// Análise de ação(ões). Números vêm só do motor de regras; o LLM só explica.
+model StockAnalysis {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  /// 1 ticker = análise isolada; 2+ = "comprar com outra".
+  tickers     String[]
+  /// Resultado do motor por ticker (dividendos, teto, valuation, concorrentes,
+  /// consenso, alertas), cada bloco com `source` e `asOf`.
+  result      Json
+  /// Premissas usadas (6% do Bazin, faixa de ±15%, janelas), para auditoria.
+  assumptions Json
+  createdAt   DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  llmLogs LlmLog[]
+
+  @@index([userId])
+  @@map("stock_analyses")
+}
+
 // ─── recommendations ─────────────────────────────────────────────────────────
 
 /// Auditoria de toda chamada ao LLM. Somente inserção.
 model LlmLog {
-  id           String     @id @default(uuid()) @db.Uuid
-  userId       String     @db.Uuid
-  purpose      LlmPurpose
-  model        String
-  prompt       String
-  response     Json
-  inputTokens  Int
-  outputTokens Int
-  comparisonId String?    @db.Uuid
-  createdAt    DateTime   @default(now())
+  id              String     @id @default(uuid()) @db.Uuid
+  userId          String     @db.Uuid
+  purpose         LlmPurpose
+  model           String
+  prompt          String
+  response        Json
+  inputTokens     Int
+  outputTokens    Int
+  comparisonId    String?    @db.Uuid
+  stockAnalysisId String?    @db.Uuid
+  createdAt       DateTime   @default(now())
 
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comparison Comparison? @relation(fields: [comparisonId], references: [id], onDelete: SetNull)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comparison    Comparison?    @relation(fields: [comparisonId], references: [id], onDelete: SetNull)
+  stockAnalysis StockAnalysis? @relation(fields: [stockAnalysisId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([comparisonId])
+  @@index([stockAnalysisId])
   @@map("llm_logs")
 }
