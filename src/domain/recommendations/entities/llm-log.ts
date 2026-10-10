@@ -14,6 +14,7 @@ export interface LlmLogProps {
   inputTokens: number
   outputTokens: number
   comparisonId: UniqueEntityId | null
+  stockAnalysisId: UniqueEntityId | null
   createdAt: Date
 }
 
@@ -51,18 +52,26 @@ export class LlmLog extends Entity<LlmLogProps> {
     return this.props.comparisonId
   }
 
+  get stockAnalysisId() {
+    return this.props.stockAnalysisId
+  }
+
   get createdAt() {
     return this.props.createdAt
   }
 
   static create(
-    props: Optional<LlmLogProps, 'comparisonId' | 'createdAt'>,
+    props: Optional<
+      LlmLogProps,
+      'comparisonId' | 'stockAnalysisId' | 'createdAt'
+    >,
     id?: UniqueEntityId
   ) {
     return new LlmLog(
       {
         ...props,
         comparisonId: props.comparisonId ?? null,
+        stockAnalysisId: props.stockAnalysisId ?? null,
         createdAt: props.createdAt ?? new Date(),
       },
       id
