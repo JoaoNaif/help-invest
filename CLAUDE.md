@@ -98,7 +98,7 @@ alerta), `constants/` (normas com **fonte e data**, ex.: limite do FGC) e `forma
 (`formatBRL`/`formatPercent` direto do `Decimal`).
 
 Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`, `stock-analysis`,
-`portfolio-analysis`.
+`portfolio-analysis`, `market-overview`.
 Portas previstas: `LlmGateway`, `MarketDataProvider`, repositórios.
 
 ### Quando criar use-case
@@ -196,6 +196,12 @@ concorrentes fixos (só bancos). Detalhes e pendências em [`docs/10`](./docs/10
 `MarketScenario`, `PortfolioAnalyzer`): carteira × faixa-alvo do perfil/estratégia × cenário de juros,
 sem indicar produto. Faixa-alvo é regra do produto (v1, ajustável). Regras, tabela e limiares em
 [`docs/11`](./docs/11-analise-de-carteira.md); decisões em `docs/05`.
+
+**Mercado hoje (`market-overview`, Fases A e B):** `GET /market-overview` lê o cenário de juros sem a carteira
+(juros, histórico, leitura por tópico, equivalência LCA/LCI × CDB) e a tendência do Ibovespa como contexto
+(`YahooMarketIndexProvider`, cache de 1 h; o IFIX não tem histórico no Yahoo e vem `null` + alerta, sem
+substituto). Reaproveita `MarketScenario` e o `MarketSnapshotLoader`. Fase C (curva do Tesouro) pendente;
+decisões em `docs/05`, contrato em `docs/09`.
 
 **Pendências:** nenhuma de infra do MVP. Tabelas **novas**
 continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do

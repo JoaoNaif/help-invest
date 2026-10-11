@@ -129,7 +129,8 @@ Limiares (regra do produto, constantes nomeadas em `market-scenario.ts`): juro r
 4. Selic caindo (juro real entre 3% e 6%, ou sem juro real) → favorece `STOCKS` e `REAL_ESTATE_FUNDS`
 5. senão → neutro
 
-O cenário **só desempata e gera motivo**; não muda a faixa. Sem preço de ações/FIIs (IFIX, yield médio)
+O cenário **só desempata e gera motivo**; não muda a faixa. A mesma leitura, sem a carteira, é
+consultável em `GET /market-overview` ([`09`](./09-api-referencia.md#10-mercado-hoje-leitura-do-cenário-de-juros)). Sem preço de ações/FIIs (IFIX, yield médio)
 nesta fase — `NO_EQUITY_MARKET_DATA` avisa sempre.
 
 ## 6. Explicação (LLM)

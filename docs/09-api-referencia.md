@@ -414,7 +414,114 @@ A estratégia vale só para a análise em que foi escolhida; o `goal` do perfil 
 - O `assetType` + `indexer` da posição define a classe: renda fixa **sem indexador** vira `OTHER`.
 - O juro real é **ex-post** (Selic meta contra IPCA dos últimos 12 meses).
 
-## 10. Enums (valores exatos)
+## 10. Mercado hoje (leitura do cenário de juros)
+
+Uma rota **independente da carteira** que responde: "com Selic, IPCA e juro real de hoje, o que o cenário favorece: pós-fixado, pré-fixado, IPCA+, LCA/LCI, ações ou FII?". Mesmas regras de `MarketScenario` da análise da carteira ([`11`](./11-analise-de-carteira.md#5-cenário-de-mercado)); aqui consultáveis sozinhas. Inclui a **tendência de preço do Ibovespa** (Fase B) como contexto. O **IFIX está indisponível** hoje (a fonte só entrega a cotação do dia) e a **curva do Tesouro** (Fase C) ainda não existe.
+
+> **Regras de exibição**
+> - É **informação, não recomendação**. Mostre o aviso fixo (regra 5 da seção 1). `stance` descreve o **cenário** para a classe; nunca rotule como "compre" ou "venda". Sugestão de rótulos: *Favorecido pelo cenário* / *Neutro* / *Menos favorecido* / *Sem dado*.
+> - Valores saem como `string` **com 2 casas** (`"14.75"`). `null` = dado indisponível, nunca zero.
+> - Calculada **na hora** (sem persistência, sem LLM). Mostre `generatedAt` e as datas `asOf`.
+> - **O mercado nunca vira erro:** sem dado, o campo vem `null` e um alerta explica.
+
+### Rota
+
+| Rota | Query | Resposta |
+|---|---|---|
+| `GET /market-overview` | `exemptPercentOfCdi` opcional (decimal > 0, padrão `90`) — % do CDI de uma LCA/LCI para a equivalência | `200 { overview }` |
+
+Erros: `400` query inválida (`0`, negativo, não numérico) · `401` sem login.
+
+### Formato
+
+```jsonc
+{
+  "overview": {
+    "generatedAt": "2026-10-11T12:00:00.000Z",
+    "rates": {                                   // cada bloco pode ser null
+      "selic":   { "value": "14.75", "asOf": "2026-10-09" },
+      "cdi":     { "value": "14.65", "asOf": "2026-10-09" },
+      "ipca12m": { "value": "4.91",  "asOf": "2026-09-01" },   // data do último IPCA mensal (defasagem)
+      "realRate": { "value": "9.38" },                         // null se faltar Selic ou IPCA
+      "selicTrend": "FALLING"                                  // FALLING | STABLE | RISING | null
+    },
+    "history": {                                 // para gráfico; listas podem vir vazias
+      "selic":       [ { "date": "2026-09-30", "value": "14.75" } ],  // último valor de cada mês, até 12, do mais antigo ao mais novo
+      "ipcaMonthly": [ { "month": "2026-09", "value": "0.40" } ]      // últimos 12 meses, do mais antigo ao mais novo
+    },
+    "readings": [                                // sempre 6, nesta ordem
+      {
+        "topic": "FIXED_POST",                   // FIXED_POST | FIXED_PRE | FIXED_INFLATION | TAX_EXEMPT | STOCKS | REAL_ESTATE_FUNDS
+        "stance": "NEUTRAL",                     // FAVORED | NEUTRAL | LESS_FAVORED | UNAVAILABLE
+        "reasons":  [ { "code": "MARKET_NUMBERS", "message": "Selic 14,75%, IPCA 12m 4,91%, juro real 9,38% a.a., tendência da Selic em queda." } ],
+        "premises": [ { "code": "REAL_RATE_HIGH_THRESHOLD", "message": "Juro real a partir de 6% é considerado alto." } ]
+      }
+    ],
+    "equivalences": [                            // vazia sem CDI (e vem alerta)
+      {
+        "kind": "TAX_EXEMPT_VS_TAXED",
+        "exemptPercentOfCdi": "90.00",
+        "brackets": [
+          { "label": "até 180 dias", "incomeTaxRate": "22.50", "equivalentTaxedPercentOfCdi": "116.13" }
+        ],
+        "note": "Quanto um CDB (com IR) precisa pagar, em % do CDI, para render o mesmo que uma LCA/LCI isenta."
+      }
+    ],
+    "market": {                                  // cada índice pode ser null (com alerta INDEX_UNAVAILABLE)
+      "ibovespa": {
+        "asOf": "2026-10-09",                    // data da última cotação
+        "source": "Yahoo Finance (^BVSP)",
+        "return12m": "47.53",                    // % em 12 meses
+        "vsMovingAverage200": "16.67",           // % acima (+) ou abaixo (−) da média de 200 dias
+        "trend": "UP"                            // UP | DOWN | MIXED
+      },
+      "ifix": null                               // hoje sempre null: a fonte não entrega histórico do IFIX
+    },
+    "alerts": [ { "code": "INDEX_UNAVAILABLE", "severity": "INFO", "message": "Sem tendência do IFIX: …" } ],
+    "assumptions": { /* limiares, fórmulas, fontes e datas — para "Como calculamos" */ }
+  }
+}
+```
+
+### Como exibir
+
+- **Leitura por tópico:** cada item traz `reasons` (a **primeira** sempre tem os números usados; `MARKET_NUMBERS`, ou `DATA_UNAVAILABLE` quando não há número) e `premises` (os limiares e regras de que a leitura depende). Mostre as premissas junto: o usuário vê *por que* o cenário aponta aquilo.
+- **`UNAVAILABLE`** = faltou a entrada principal da regra (ex.: sem IPCA para o juro real; sem histórico da Selic para a tendência de prefixados). Não mostre como neutro.
+- **`TAX_EXEMPT`** (LCA/LCI) segue o pós-fixado; o ganho real da isenção está em `equivalences`: o quanto um CDB tributado precisa pagar, por faixa de prazo, para empatar com a LCA/LCI.
+- **`STOCKS` / `REAL_ESTATE_FUNDS`:** o `stance` vem **só do cenário de juros**. A tendência do índice (`STOCKS` ↔ Ibovespa, `REAL_ESTATE_FUNDS` ↔ IFIX) entra como **motivo extra** (`INDEX_TREND_UP`/`DOWN`/`MIXED`), **nunca muda o `stance`**: é contexto, não sinal de compra ou venda. Se o índice está indisponível, o motivo é `INDEX_UNAVAILABLE` e a premissa `NO_EQUITY_MARKET_DATA` fica.
+- **`market` (índices):** descreva o passado, não preveja. `UP` = preço acima da média de 200 dias **e** retorno em 12 meses positivo; `DOWN` = abaixo da média **e** retorno negativo; `MIXED` = qualquer outro caso. Mostre sempre `asOf` e `source`. `null` = sem dado; não preencha com outro índice ou ETF.
+- **Gráficos:** `history.selic` (um ponto por mês) e `history.ipcaMonthly`; podem vir vazios.
+- **Painel "Como calculamos":** `assumptions` traz os indicadores com fonte e data, a fórmula do juro real, os limiares, a janela da tendência, a regra de leitura e a tabela de IR usada.
+
+### Leitura por tópico (regra do produto, não é norma)
+
+| `topic` | `FAVORED` quando | `LESS_FAVORED` quando |
+|---|---|---|
+| `FIXED_POST` | juro real ≥ 6% e Selic não está em queda; ou Selic em alta | juro real < 3%; ou Selic em queda com juro real abaixo de 6% |
+| `FIXED_INFLATION` | juro real ≥ 6% (reforçado com Selic em queda) | juro real < 3% |
+| `FIXED_PRE` | Selic em queda e juro real ≥ 3% | Selic em alta |
+| `TAX_EXEMPT` | igual a `FIXED_POST` | igual a `FIXED_POST` |
+| `STOCKS` · `REAL_ESTATE_FUNDS` | juro real < 3%, ou Selic em queda (sem juro real alto) | juro real ≥ 6% (sem Selic em queda) — a tendência do índice **não** entra aqui |
+
+Juro real alto **e** Selic em queda deixa a renda variável neutra (sinais opostos). Quando as duas pontas disparam, `LESS_FAVORED` vence. Sem a entrada principal: `UNAVAILABLE`.
+
+### Códigos desta seção
+
+| `code` | Onde | Quando |
+|---|---|---|
+| `MARKET_NUMBERS` · `DATA_UNAVAILABLE` | motivo | números usados / faltou dado |
+| `HIGH_REAL_RATE` · `LOW_REAL_RATE` · `REAL_RATE_BETWEEN_THRESHOLDS` · `HIGH_REAL_RATE_FALLING_SELIC` | motivo | situação do juro real |
+| `SELIC_RISING` · `SELIC_FALLING` · `SELIC_STABLE` | motivo | direção da Selic |
+| `FOLLOWS_FIXED_POST` | motivo (`TAX_EXEMPT`) | acompanha o pós-fixado |
+| `INDEX_TREND_UP` · `INDEX_TREND_DOWN` · `INDEX_TREND_MIXED` | motivo (`STOCKS`, `REAL_ESTATE_FUNDS`) | tendência do índice, só contexto |
+| `INDEX_UNAVAILABLE` | motivo (`STOCKS`, `REAL_ESTATE_FUNDS`) | sem tendência do índice (diz por quê) |
+| `REAL_RATE_HIGH_THRESHOLD` · `REAL_RATE_LOW_THRESHOLD` · `SELIC_TREND_WINDOW` · `REAL_RATE_FORMULA` · `PRE_MARK_TO_MARKET` · `INCOME_TAX_REGRESSIVE` · `NO_EQUITY_MARKET_DATA` · `INDEX_TREND_RULE` · `INDEX_CONTEXT_ONLY` | premissa | limiares e regras da leitura (`NO_EQUITY_MARKET_DATA` só com o índice indisponível) |
+| `MARKET_DATA_UNAVAILABLE` | alerta (`INFO`) | falta Selic, CDI ou IPCA recente |
+| `SELIC_HISTORY_UNAVAILABLE` | alerta (`INFO`) | sem histórico para a tendência |
+| `INDEX_UNAVAILABLE` | alerta (`INFO`) | um índice sem tendência (fonte fora do ar, histórico curto ou cotação com mais de 7 dias); um alerta por índice |
+| `NO_EQUITY_MARKET_DATA` | alerta (`INFO`) | só quando **nenhum** índice chegou: a leitura vem exclusivamente dos juros |
+
+## 11. Enums (valores exatos)
 
 | Campo | Valores |
 |---|---|
@@ -432,13 +539,15 @@ A estratégia vale só para a análise em que foi escolhida; o `goal` do perfil 
 | `assetClass` | `FIXED_POST` `FIXED_INFLATION` `FIXED_PRE` `STOCKS` `REAL_ESTATE_FUNDS` `CRYPTO` (têm faixa-alvo) · `FUNDS` `OTHER` (só em `current`) |
 | `direction` (caminho) | `INCREASE` `MAINTAIN` `REDUCE` |
 | `selicTrend` | `FALLING` `STABLE` `RISING` (ou `null`) |
+| `topic` (mercado hoje) | `FIXED_POST` `FIXED_PRE` `FIXED_INFLATION` `TAX_EXEMPT` `STOCKS` `REAL_ESTATE_FUNDS` |
+| `stance` (mercado hoje) | `FAVORED` `NEUTRAL` `LESS_FAVORED` `UNAVAILABLE` |
 
 Rótulos em português são responsabilidade do front (mapeie os valores acima).
 
-## 11. Limites de requisição (por IP, por minuto)
+## 12. Limites de requisição (por IP, por minuto)
 
 Geral 300 · `POST /accounts` 5 · `POST /sessions` 5 · `POST /sessions/refresh` 30 · `POST /comparisons` 10 · `POST /comparisons/:id/explanation` 10 · `POST /stock-analyses` 20 · `POST /portfolio-analyses` 20 · `POST /portfolio-analyses/:id/explanation` 10. Estouro → `429`; mostre mensagem amigável e peça para aguardar.
 
-## 12. Para subir o backend localmente
+## 13. Para subir o backend localmente
 
 `npm run services:up` (Postgres) → `npm run start:dev` (API em `:3333`). Ao subir, o backend sincroniza Selic/CDI/IPCA do Banco Central sozinho (leva alguns segundos na primeira vez; antes disso `evaluate` pode dar 503). Sem `ANTHROPIC_API_KEY` no `.env`, leitura de texto/print e explicação respondem 503 — a comparação com opções digitadas funciona normalmente.
