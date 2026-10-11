@@ -11,11 +11,17 @@ import {
 } from '@/domain/stock-analysis/applications/dtos/stock-snapshot'
 import { TickerNotFoundError } from '@/domain/stock-analysis/applications/errors/ticker-not-found-error'
 import { StockDataProvider } from '@/domain/stock-analysis/applications/gateways/stock-data-provider'
+import {
+  YAHOO_CHART_URL,
+  YAHOO_REQUEST_TIMEOUT_MS,
+  YAHOO_SOURCE,
+  YAHOO_USER_AGENT,
+} from './yahoo-finance'
 
-const SOURCE = 'Yahoo Finance'
+const SOURCE = YAHOO_SOURCE
 const COOKIE_URL = 'https://fc.yahoo.com'
 const CRUMB_URL = 'https://query1.finance.yahoo.com/v1/test/getcrumb'
-const CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart'
+const CHART_URL = YAHOO_CHART_URL
 const SUMMARY_URL = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary'
 const SUMMARY_MODULES = [
   'defaultKeyStatistics',
@@ -25,11 +31,9 @@ const SUMMARY_MODULES = [
   'assetProfile',
 ].join(',')
 
-/** O Yahoo recusa requisições sem User-Agent de navegador. */
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+const USER_AGENT = YAHOO_USER_AGENT
 
-const REQUEST_TIMEOUT_MS = 15_000
+const REQUEST_TIMEOUT_MS = YAHOO_REQUEST_TIMEOUT_MS
 const DIVIDEND_HISTORY_YEARS = 10
 
 /** Ticker da B3: 4 letras + 1 ou 2 dígitos (PETR4, BBDC4, SANB11). */
