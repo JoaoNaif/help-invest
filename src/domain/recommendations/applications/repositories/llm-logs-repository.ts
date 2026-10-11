@@ -8,5 +8,10 @@ export abstract class LlmLogsRepository {
     comparisonId: string,
     purpose: LlmPurpose
   ): Promise<LlmLog[]>
+  /** Logs da análise da carteira com esse propósito, do mais novo para o mais antigo. */
+  abstract findManyByPortfolioAnalysisId(
+    portfolioAnalysisId: string,
+    purpose: LlmPurpose
+  ): Promise<LlmLog[]>
   abstract create(log: LlmLog): Promise<void>
 }

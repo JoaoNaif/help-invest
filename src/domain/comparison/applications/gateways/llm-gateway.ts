@@ -1,4 +1,6 @@
 import { Either } from '@/core/either'
+import { PortfolioExplanation } from '@/domain/portfolio-analysis/applications/dtos/portfolio-explanation'
+import { PortfolioExplanationInput } from '@/domain/portfolio-analysis/applications/dtos/portfolio-explanation-input'
 import { ComparisonExplanation } from '../dtos/comparison-explanation'
 import { ComparisonExplanationInput } from '../dtos/comparison-explanation-input'
 import { ComparisonOptionInput } from '../dtos/comparison-option-input'
@@ -35,6 +37,12 @@ export interface ExplainComparisonResult {
   explanation: ComparisonExplanation | null
 }
 
+export interface ExplainPortfolioResult {
+  call: LlmCall
+  /** `null` = resposta vazia ou inválida. */
+  explanation: PortfolioExplanation | null
+}
+
 /**
  * Port do LLM (adapter real: API da Anthropic). Só extrai e explica —
  * nunca calcula taxa, imposto ou alerta.
@@ -48,4 +56,8 @@ export abstract class LlmGateway {
   abstract explainComparison(
     input: ComparisonExplanationInput
   ): Promise<Either<LlmUnavailableError, ExplainComparisonResult>>
+
+  abstract explainPortfolio(
+    input: PortfolioExplanationInput
+  ): Promise<Either<LlmUnavailableError, ExplainPortfolioResult>>
 }

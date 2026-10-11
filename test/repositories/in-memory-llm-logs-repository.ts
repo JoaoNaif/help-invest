@@ -15,6 +15,19 @@ export class InMemoryLlmLogsRepository implements LlmLogsRepository {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }
 
+  async findManyByPortfolioAnalysisId(
+    portfolioAnalysisId: string,
+    purpose: LlmPurpose
+  ) {
+    return this.items
+      .filter(
+        (item) =>
+          item.portfolioAnalysisId?.toString() === portfolioAnalysisId &&
+          item.purpose === purpose
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
   async create(log: LlmLog) {
     this.items.push(log)
   }

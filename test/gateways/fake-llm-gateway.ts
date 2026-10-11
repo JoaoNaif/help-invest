@@ -1,10 +1,13 @@
 import { Either, left, right } from '@/core/either'
 import { ComparisonExplanation } from '@/domain/comparison/applications/dtos/comparison-explanation'
+import { PortfolioExplanation } from '@/domain/portfolio-analysis/applications/dtos/portfolio-explanation'
+import { PortfolioExplanationInput } from '@/domain/portfolio-analysis/applications/dtos/portfolio-explanation-input'
 import { ComparisonExplanationInput } from '@/domain/comparison/applications/dtos/comparison-explanation-input'
 import { ComparisonOptionInput } from '@/domain/comparison/applications/dtos/comparison-option-input'
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
 import {
   ExplainComparisonResult,
+  ExplainPortfolioResult,
   ExtractionSource,
   ExtractOptionsResult,
   LlmGateway,
@@ -22,9 +25,15 @@ export class FakeLlmGateway implements LlmGateway {
     bestReason: null,
     options: [],
   }
+  public portfolioExplanation: PortfolioExplanation | null = {
+    summary: 'Sua carteira está concentrada em renda fixa pós-fixada.',
+    highlights: [],
+    attentionPoints: [],
+  }
   public unavailable = false
   public calls: ExtractionSource[] = []
   public explainCalls: ComparisonExplanationInput[] = []
+  public explainPortfolioCalls: PortfolioExplanationInput[] = []
 
   async extractOptions(
     source: ExtractionSource
@@ -68,6 +77,27 @@ export class FakeLlmGateway implements LlmGateway {
         outputTokens: 200,
       },
       explanation: this.explanation,
+    })
+  }
+
+  async explainPortfolio(
+    input: PortfolioExplanationInput
+  ): Promise<Either<LlmUnavailableError, ExplainPortfolioResult>> {
+    this.explainPortfolioCalls.push(input)
+
+    if (this.unavailable) {
+      return left(new LlmUnavailableError())
+    }
+
+    return right({
+      call: {
+        model: 'fake-model',
+        prompt: `explain-portfolio: ${JSON.stringify(input)}`,
+        rawResponse: { explanation: this.portfolioExplanation },
+        inputTokens: 300,
+        outputTokens: 200,
+      },
+      explanation: this.portfolioExplanation,
     })
   }
 }
