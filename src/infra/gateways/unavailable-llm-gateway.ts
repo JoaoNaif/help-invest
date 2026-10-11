@@ -3,6 +3,7 @@ import { Either, left } from '@/core/either'
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
 import {
   ExplainComparisonResult,
+  ExplainPortfolioResult,
   ExtractOptionsResult,
   LlmGateway,
 } from '@/domain/comparison/applications/gateways/llm-gateway'
@@ -23,6 +24,12 @@ export class UnavailableLlmGateway implements LlmGateway {
 
   async explainComparison(): Promise<
     Either<LlmUnavailableError, ExplainComparisonResult>
+  > {
+    return left(new LlmUnavailableError())
+  }
+
+  async explainPortfolio(): Promise<
+    Either<LlmUnavailableError, ExplainPortfolioResult>
   > {
     return left(new LlmUnavailableError())
   }

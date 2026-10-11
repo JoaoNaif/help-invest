@@ -117,20 +117,25 @@ describe('Anthropic LLM Gateway', () => {
     ],
     [
       'invalid date',
-      JSON.stringify({ options: [{ ...validOption, maturityAt: '15/03/2028' }] }),
+      JSON.stringify({
+        options: [{ ...validOption, maturityAt: '15/03/2028' }],
+      }),
     ],
-  ])('should return null options on %s, keeping the raw response', async (_, text) => {
-    create.mockResolvedValue(makeMessage(text))
+  ])(
+    'should return null options on %s, keeping the raw response',
+    async (_, text) => {
+      create.mockResolvedValue(makeMessage(text))
 
-    const result = await sut.extractOptions({ type: 'text', text: 'CDB X' })
+      const result = await sut.extractOptions({ type: 'text', text: 'CDB X' })
 
-    expect(result.isRight()).toBe(true)
+      expect(result.isRight()).toBe(true)
 
-    if (result.isRight()) {
-      expect(result.value.options).toBeNull()
-      expect(result.value.call.rawResponse).toBeDefined()
+      if (result.isRight()) {
+        expect(result.value.options).toBeNull()
+        expect(result.value.call.rawResponse).toBeDefined()
+      }
     }
-  })
+  )
 
   it('should return null options when the answer was cut or refused', async () => {
     create.mockResolvedValue(
@@ -192,10 +197,7 @@ describe('Anthropic LLM Gateway', () => {
     ['empty text', '   '],
     ['not json', 'texto corrido antigo'],
     ['missing fields', JSON.stringify({ summary: 'só isso' })],
-    [
-      'empty summary',
-      JSON.stringify({ ...validExplanation, summary: '  ' }),
-    ],
+    ['empty summary', JSON.stringify({ ...validExplanation, summary: '  ' })],
   ])('should return a null explanation on %s', async (_, text) => {
     create.mockResolvedValue(makeMessage(text))
 
@@ -243,6 +245,93 @@ describe('Anthropic LLM Gateway', () => {
     })
 
     expect(explanation.value).toBeInstanceOf(LlmUnavailableError)
+  })
+
+  describe('portfolio explanation', () => {
+    const portfolioInput = {
+      strategy: 'BALANCE',
+      investor: {
+        riskTolerance: 'MEDIUM',
+        horizonMonths: 60,
+        goal: null,
+        isDefault: true,
+      },
+      current: [{ assetClass: 'FIXED_POST', percentage: '100.00' }],
+      target: [{ assetClass: 'FIXED_POST', min: '20.00', max: '40.00' }],
+      paths: [],
+      market: {
+        selic: '14.75',
+        cdi: '14.65',
+        ipca12m: '4.80',
+        realRate: '9.49',
+        selicTrend: null,
+        asOf: '2026-10-09',
+        ipcaAsOf: '2026-09-01',
+      },
+      reserveIsBelowRecommended: null,
+      alerts: [],
+    } as const
+
+    const validPortfolioExplanation = {
+      summary: 'A carteira está toda em renda fixa pós-fixada.',
+      highlights: [
+        { assetClass: 'FIXED_POST', text: 'Está acima da faixa-alvo.' },
+      ],
+      attentionPoints: ['Perfil ainda não preenchido.'],
+    }
+
+    it('should be able to explain a portfolio analysis', async () => {
+      create.mockResolvedValue(
+        makeMessage(JSON.stringify(validPortfolioExplanation))
+      )
+
+      const result = await sut.explainPortfolio(
+        portfolioInput as unknown as Parameters<typeof sut.explainPortfolio>[0]
+      )
+
+      expect(result.isRight() && result.value.explanation).toEqual(
+        validPortfolioExplanation
+      )
+
+      const request = create.mock.calls[0][0]
+
+      expect(request.messages[0].content[0].text).toContain(
+        '"percentage": "100.00"'
+      )
+      expect(request.output_config.format.type).toBe('json_schema')
+      // o prompt proíbe produto, ticker e ordem de compra/venda
+      expect(request.system).toContain('Nunca cite produto, ticker')
+      expect(request.system).toContain('Nunca diga "compre"')
+    })
+
+    it('should return a null explanation when the class is not an asset class', async () => {
+      create.mockResolvedValue(
+        makeMessage(
+          JSON.stringify({
+            ...validPortfolioExplanation,
+            highlights: [{ assetClass: 'PETR4', text: 'invente' }],
+          })
+        )
+      )
+
+      const result = await sut.explainPortfolio(
+        portfolioInput as unknown as Parameters<typeof sut.explainPortfolio>[0]
+      )
+
+      expect(result.isRight() && result.value.explanation).toBeNull()
+    })
+
+    it('should return LlmUnavailableError when the API fails', async () => {
+      create.mockRejectedValue(
+        new Anthropic.APIConnectionError({ message: 'network down' })
+      )
+
+      const result = await sut.explainPortfolio(
+        portfolioInput as unknown as Parameters<typeof sut.explainPortfolio>[0]
+      )
+
+      expect(result.value).toBeInstanceOf(LlmUnavailableError)
+    })
   })
 
   it('should not hide programming errors as unavailable', async () => {

@@ -7,11 +7,14 @@ import { ComparisonOptionInput } from '@/domain/comparison/applications/dtos/com
 import { LlmUnavailableError } from '@/domain/comparison/applications/errors/llm-unavailable-error'
 import {
   ExplainComparisonResult,
+  ExplainPortfolioResult,
   ExtractionSource,
   ExtractOptionsResult,
   LlmCall,
   LlmGateway,
 } from '@/domain/comparison/applications/gateways/llm-gateway'
+import { PortfolioExplanationInput } from '@/domain/portfolio-analysis/applications/dtos/portfolio-explanation-input'
+import { AssetClass } from '@/domain/portfolio-analysis/entities/enums/asset-class'
 import { AssetType } from '@/domain/shared/enums/asset-type'
 import { Indexer } from '@/domain/shared/enums/indexer'
 import { Liquidity } from '@/domain/shared/enums/liquidity'
@@ -56,6 +59,23 @@ Estilo:
 - Itens curtos, objetivos, sem emojis, sem repetir o texto dos alertas palavra por palavra.
 - Fale em "combina mais com o seu objetivo", nunca em ordem do tipo "você deve investir".
 - Não inclua aviso legal nos textos: a tela já mostra que é informação e não recomendação.`
+
+const PORTFOLIO_EXPLANATION_SYSTEM_PROMPT = `Você ajuda uma pessoa física a entender a situação da carteira dela frente ao seu perfil e ao cenário de juros, em português do Brasil e em linguagem simples (ela entende de investir, mas não é especialista).
+
+A análise já foi calculada por um motor de regras: faixas-alvo por classe de ativo, distância da carteira até cada faixa, cenário de juros e alertas. Use tudo exatamente como recebido; nunca recalcule, arredonde, converta nem invente números, taxas ou fatos de mercado.
+
+Devolva:
+- "summary": 2 a 3 frases com o retrato geral (onde a carteira está mais distante da faixa-alvo e o que o cenário de juros e a estratégia escolhida acrescentam).
+- "highlights": até 3 itens, cada um com "assetClass" (exatamente um dos valores recebidos em "paths") e "text" (1 a 2 frases sobre aquela classe, a partir dos motivos e riscos dela).
+- "attentionPoints": até 3 pontos curtos de atenção, a partir dos alertas (por código), da reserva de emergência e dos riscos.
+
+Regras:
+- A estratégia escolhida ("strategy") e o perfil ("investor") orientam o que destacar. Com "isDefault" verdadeiro, avise que o perfil ainda não foi preenchido e que valem premissas padrão.
+- Fale de classes de ativo (renda fixa pós-fixada, ações, fundos imobiliários...). Nunca cite produto, ticker, banco ou emissor.
+- Nunca diga "compre", "venda", "invista" nem dê ordem. Descreva a situação: "está abaixo da faixa-alvo", "tem espaço", "está acima".
+- "direction" INCREASE = abaixo da faixa; REDUCE = acima da faixa; MAINTAIN = dentro da faixa.
+- Itens curtos, sem emojis, sem repetir os textos dos motivos palavra por palavra.
+- Não inclua aviso legal: a tela já mostra que é informação e não recomendação.`
 
 const extractionJsonSchema = {
   type: 'object',
@@ -125,6 +145,28 @@ const explanationJsonSchema = {
   },
 } as const
 
+const portfolioExplanationJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['summary', 'highlights', 'attentionPoints'],
+  properties: {
+    summary: { type: 'string' },
+    highlights: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['assetClass', 'text'],
+        properties: {
+          assetClass: { type: 'string', enum: Object.values(AssetClass) },
+          text: { type: 'string' },
+        },
+      },
+    },
+    attentionPoints: { type: 'array', items: { type: 'string' } },
+  },
+} as const
+
 // A saída do LLM nunca é confiada: passa por aqui antes de virar domínio.
 const extractedOptionsSchema = z.object({
   options: z.array(
@@ -165,6 +207,18 @@ const explanationSchema = z.object({
       cons: z.array(z.string()),
     })
   ),
+})
+
+// Classe inventada pelo LLM invalida o item (o domínio descarta o resto).
+const portfolioExplanationSchema = z.object({
+  summary: z.string().trim().min(1),
+  highlights: z.array(
+    z.object({
+      assetClass: z.nativeEnum(AssetClass),
+      text: z.string(),
+    })
+  ),
+  attentionPoints: z.array(z.string()),
 })
 
 /**
@@ -243,6 +297,36 @@ export class AnthropicLlmGateway implements LlmGateway {
     })
   }
 
+  async explainPortfolio(
+    input: PortfolioExplanationInput
+  ): Promise<Either<LlmUnavailableError, ExplainPortfolioResult>> {
+    const userText = JSON.stringify(input, null, 2)
+
+    const response = await this.send({
+      system: PORTFOLIO_EXPLANATION_SYSTEM_PROMPT,
+      content: [{ type: 'text', text: userText }],
+      maxTokens: EXPLANATION_MAX_TOKENS,
+      format: portfolioExplanationJsonSchema,
+    })
+
+    if (response.isLeft()) {
+      return left(response.value)
+    }
+
+    const message = response.value
+    const parsed = portfolioExplanationSchema.safeParse(this.readJson(message))
+
+    return right({
+      call: this.toCall(
+        message,
+        `${PORTFOLIO_EXPLANATION_SYSTEM_PROMPT}
+
+${userText}`
+      ),
+      explanation: parsed.success ? parsed.data : null,
+    })
+  }
+
   private async send({
     system,
     content,
@@ -307,14 +391,12 @@ export class AnthropicLlmGateway implements LlmGateway {
       return null
     }
 
-    return parsed.data.options.map(
-      (option): ComparisonOptionInput => ({
-        ...option,
-        rate: new Decimal(option.rate),
-        minAmount:
-          option.minAmount === null ? null : new Decimal(option.minAmount),
-      })
-    )
+    return parsed.data.options.map((option): ComparisonOptionInput => ({
+      ...option,
+      rate: new Decimal(option.rate),
+      minAmount:
+        option.minAmount === null ? null : new Decimal(option.minAmount),
+    }))
   }
 
   private toCall(message: Anthropic.Message, prompt: string): LlmCall {
