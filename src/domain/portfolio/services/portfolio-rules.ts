@@ -67,6 +67,17 @@ export class PortfolioRules {
     }
   }
 
+  /** Reserva de emergência recomendada: `EMERGENCY_RESERVE_MONTHS` × renda. */
+  static recommendedReserve(profile: InvestorProfile): Decimal {
+    return profile.monthlyIncome.times(EMERGENCY_RESERVE_MONTHS)
+  }
+
+  static isReserveBelowRecommended(profile: InvestorProfile): boolean {
+    return profile.emergencyReserve.lessThan(
+      PortfolioRules.recommendedReserve(profile)
+    )
+  }
+
   static issuerExposures(
     positions: Position[],
     total = sum(positions.map((position) => position.investedAmount))
@@ -197,11 +208,9 @@ function profileAlerts(profile: InvestorProfile | null, now: Date): Alert[] {
     })
   }
 
-  const recommendedReserve = profile.monthlyIncome.times(
-    EMERGENCY_RESERVE_MONTHS
-  )
+  const recommendedReserve = PortfolioRules.recommendedReserve(profile)
 
-  if (profile.emergencyReserve.lessThan(recommendedReserve)) {
+  if (PortfolioRules.isReserveBelowRecommended(profile)) {
     alerts.push({
       code: 'LOW_EMERGENCY_RESERVE',
       severity: AlertSeverity.WARNING,

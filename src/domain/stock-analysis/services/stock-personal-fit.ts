@@ -4,8 +4,8 @@ import { InvestmentGoal } from '@/domain/portfolio/entities/enums/investment-goa
 import { RiskTolerance } from '@/domain/portfolio/entities/enums/risk-tolerance'
 import { Position } from '@/domain/portfolio/entities/position'
 import {
-  EMERGENCY_RESERVE_MONTHS,
   ISSUER_CONCENTRATION_LIMIT_PERCENT,
+  PortfolioRules,
 } from '@/domain/portfolio/services/portfolio-rules'
 import { Alert } from '@/domain/shared/alert'
 import { AlertSeverity } from '@/domain/shared/enums/alert-severity'
@@ -108,11 +108,9 @@ export class StockPersonalFit {
     }
 
     const alerts: Alert[] = []
-    const recommendedReserve = profile.monthlyIncome.times(
-      EMERGENCY_RESERVE_MONTHS
-    )
+    const recommendedReserve = PortfolioRules.recommendedReserve(profile)
 
-    if (profile.emergencyReserve.lessThan(recommendedReserve)) {
+    if (PortfolioRules.isReserveBelowRecommended(profile)) {
       alerts.push({
         code: 'LOW_RESERVE_FOR_STOCKS',
         severity: AlertSeverity.WARNING,
