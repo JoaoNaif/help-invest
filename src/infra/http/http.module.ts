@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Module } from '@nestjs/common'
 import { LlmGateway } from '@/domain/comparison/applications/gateways/llm-gateway'
+import { MarketIndexProvider } from '@/domain/market-overview/applications/gateways/market-index-provider'
 import { StockDataProvider } from '@/domain/stock-analysis/applications/gateways/stock-data-provider'
 import { DatabaseModule } from '../database/database.module'
 import { CryptographyModule } from '../cryptography/cryptography.module'
@@ -8,6 +9,7 @@ import { EnvModule } from '../env/env.module'
 import { EnvService } from '../env/env.service'
 import { AnthropicLlmGateway } from '../gateways/anthropic-llm-gateway'
 import { UnavailableLlmGateway } from '../gateways/unavailable-llm-gateway'
+import { YahooMarketIndexProvider } from '../gateways/yahoo-market-index-provider'
 import { YahooStockDataProvider } from '../gateways/yahoo-stock-data-provider'
 import { AuthenticateController } from './controllers/authenticate.controller'
 import { ChooseComparisonOptionController } from './controllers/choose-comparison-option.controller'
@@ -23,6 +25,7 @@ import { ExplainPortfolioAnalysisController } from './controllers/explain-portfo
 import { GetComparisonController } from './controllers/get-comparison.controller'
 import { GetCurrentUserController } from './controllers/get-current-user.controller'
 import { GetInvestorProfileController } from './controllers/get-investor-profile.controller'
+import { GetMarketOverviewController } from './controllers/get-market-overview.controller'
 import { GetPortfolioAnalysisController } from './controllers/get-portfolio-analysis.controller'
 import { GetPortfolioSummaryController } from './controllers/get-portfolio-summary.controller'
 import { GetStockAnalysisController } from './controllers/get-stock-analysis.controller'
@@ -39,6 +42,7 @@ import { ReviewComparisonOptionsController } from './controllers/review-comparis
 import { SaveInvestorProfileController } from './controllers/save-investor-profile.controller'
 import { accountsUseCases } from './use-cases/accounts.providers'
 import { comparisonUseCases } from './use-cases/comparison.providers'
+import { marketOverviewUseCases } from './use-cases/market-overview.providers'
 import { portfolioAnalysisUseCases } from './use-cases/portfolio-analysis.providers'
 import { portfolioUseCases } from './use-cases/portfolio.providers'
 import { stockAnalysisUseCases } from './use-cases/stock-analysis.providers'
@@ -80,6 +84,8 @@ import { stockAnalysisUseCases } from './use-cases/stock-analysis.providers'
     GetPortfolioAnalysisController,
     ListPortfolioAnalysesController,
     ExplainPortfolioAnalysisController,
+    // market-overview
+    GetMarketOverviewController,
   ],
   providers: [
     // Sem ANTHROPIC_API_KEY o LLM fica indisponível (503) e só a comparação
@@ -103,11 +109,17 @@ import { stockAnalysisUseCases } from './use-cases/stock-analysis.providers'
       provide: StockDataProvider,
       useFactory: (): StockDataProvider => new YahooStockDataProvider(),
     },
+    // Uma instância só: o cache (1 h) vive nela.
+    {
+      provide: MarketIndexProvider,
+      useFactory: (): MarketIndexProvider => new YahooMarketIndexProvider(),
+    },
     ...accountsUseCases,
     ...portfolioUseCases,
     ...comparisonUseCases,
     ...stockAnalysisUseCases,
     ...portfolioAnalysisUseCases,
+    ...marketOverviewUseCases,
   ],
 })
 export class HttpModule {}
