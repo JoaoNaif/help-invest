@@ -21,6 +21,18 @@ export class PrismaLlmLogsRepository implements LlmLogsRepository {
     return logs.map(PrismaLlmLogMapper.toDomain)
   }
 
+  async findManyByPortfolioAnalysisId(
+    portfolioAnalysisId: string,
+    purpose: LlmPurpose
+  ): Promise<LlmLog[]> {
+    const logs = await this.prisma.llmLog.findMany({
+      where: { portfolioAnalysisId, purpose },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return logs.map(PrismaLlmLogMapper.toDomain)
+  }
+
   async create(log: LlmLog): Promise<void> {
     await this.prisma.llmLog.create({ data: PrismaLlmLogMapper.toPrisma(log) })
   }

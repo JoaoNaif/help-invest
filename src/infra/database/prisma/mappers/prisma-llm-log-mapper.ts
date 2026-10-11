@@ -19,6 +19,9 @@ export class PrismaLlmLogMapper {
         stockAnalysisId: raw.stockAnalysisId
           ? new UniqueEntityId(raw.stockAnalysisId)
           : null,
+        portfolioAnalysisId: raw.portfolioAnalysisId
+          ? new UniqueEntityId(raw.portfolioAnalysisId)
+          : null,
         createdAt: raw.createdAt,
       },
       new UniqueEntityId(raw.id)
@@ -41,6 +44,7 @@ export class PrismaLlmLogMapper {
       outputTokens: log.outputTokens,
       comparisonId: log.comparisonId?.toString() ?? null,
       stockAnalysisId: log.stockAnalysisId?.toString() ?? null,
+      portfolioAnalysisId: log.portfolioAnalysisId?.toString() ?? null,
       createdAt: log.createdAt,
     }
   }

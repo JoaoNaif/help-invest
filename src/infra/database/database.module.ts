@@ -3,6 +3,7 @@ import { SessionsRepository } from '@/domain/accounts/applications/repositories/
 import { UsersRepository } from '@/domain/accounts/applications/repositories/users-repository'
 import { ComparisonsRepository } from '@/domain/comparison/applications/repositories/comparisons-repository'
 import { IndicatorValuesRepository } from '@/domain/market-data/applications/repositories/indicator-values-repository'
+import { PortfolioAnalysesRepository } from '@/domain/portfolio-analysis/applications/repositories/portfolio-analyses-repository'
 import { InvestorProfilesRepository } from '@/domain/portfolio/applications/repositories/investor-profiles-repository'
 import { PositionsRepository } from '@/domain/portfolio/applications/repositories/positions-repository'
 import { LlmLogsRepository } from '@/domain/recommendations/applications/repositories/llm-logs-repository'
@@ -12,6 +13,7 @@ import { PrismaComparisonsRepository } from './prisma/repositories/prisma-compar
 import { PrismaIndicatorValuesRepository } from './prisma/repositories/prisma-indicator-values-repository'
 import { PrismaInvestorProfilesRepository } from './prisma/repositories/prisma-investor-profiles-repository'
 import { PrismaLlmLogsRepository } from './prisma/repositories/prisma-llm-logs-repository'
+import { PrismaPortfolioAnalysesRepository } from './prisma/repositories/prisma-portfolio-analyses-repository'
 import { PrismaPositionsRepository } from './prisma/repositories/prisma-positions-repository'
 import { PrismaSessionsRepository } from './prisma/repositories/prisma-sessions-repository'
 import { PrismaStockAnalysesRepository } from './prisma/repositories/prisma-stock-analyses-repository'
@@ -39,6 +41,10 @@ import { PrismaUsersRepository } from './prisma/repositories/prisma-users-reposi
       provide: StockAnalysesRepository,
       useClass: PrismaStockAnalysesRepository,
     },
+    {
+      provide: PortfolioAnalysesRepository,
+      useClass: PrismaPortfolioAnalysesRepository,
+    },
   ],
   exports: [
     PrismaService,
@@ -50,6 +56,7 @@ import { PrismaUsersRepository } from './prisma/repositories/prisma-users-reposi
     ComparisonsRepository,
     LlmLogsRepository,
     StockAnalysesRepository,
+    PortfolioAnalysesRepository,
   ],
 })
 export class DatabaseModule {}
