@@ -76,6 +76,15 @@ enum LlmPurpose {
   EXTRACTION
   EXPLANATION
   STOCK_EXPLANATION
+  PORTFOLIO_EXPLANATION
+}
+
+/// O que o usuário quer da carteira nesta análise (vale só para ela).
+enum PortfolioStrategy {
+  BALANCE
+  MAX_RETURN
+  INCOME
+  PROTECT
 }
 
 // ─── accounts ────────────────────────────────────────────────────────────────
@@ -89,12 +98,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions        Session[]
-  investorProfile InvestorProfile?
-  positions       Position[]
-  comparisons     Comparison[]
-  stockAnalyses   StockAnalysis[]
-  llmLogs         LlmLog[]
+  sessions          Session[]
+  investorProfile   InvestorProfile?
+  positions         Position[]
+  comparisons       Comparison[]
+  stockAnalyses     StockAnalysis[]
+  portfolioAnalyses PortfolioAnalysis[]
+  llmLogs           LlmLog[]
 
   @@map("users")
 }
@@ -247,28 +257,53 @@ model StockAnalysis {
   @@map("stock_analyses")
 }
 
+// ─── portfolio-analysis ──────────────────────────────────────────────────────
+
+/// Análise da carteira por cenário e objetivo: quais classes de ativo têm espaço.
+/// Números e regras vêm só do motor; o LLM só explica (sob demanda).
+model PortfolioAnalysis {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @db.Uuid
+  strategy    PortfolioStrategy
+  /// Snapshot da carteira e do cenário no momento da análise (o histórico
+  /// continua legível depois que a carteira mudar).
+  result      Json
+  /// Tabela-alvo, limiares, fórmulas e fontes usados, para auditoria.
+  assumptions Json
+  createdAt   DateTime          @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  llmLogs LlmLog[]
+
+  @@index([userId])
+  @@map("portfolio_analyses")
+}
+
 // ─── recommendations ─────────────────────────────────────────────────────────
 
 /// Auditoria de toda chamada ao LLM. Somente inserção.
 model LlmLog {
-  id              String     @id @default(uuid()) @db.Uuid
-  userId          String     @db.Uuid
-  purpose         LlmPurpose
-  model           String
-  prompt          String
-  response        Json
-  inputTokens     Int
-  outputTokens    Int
-  comparisonId    String?    @db.Uuid
-  stockAnalysisId String?    @db.Uuid
-  createdAt       DateTime   @default(now())
+  id                  String     @id @default(uuid()) @db.Uuid
+  userId              String     @db.Uuid
+  purpose             LlmPurpose
+  model               String
+  prompt              String
+  response            Json
+  inputTokens         Int
+  outputTokens        Int
+  comparisonId        String?    @db.Uuid
+  stockAnalysisId     String?    @db.Uuid
+  portfolioAnalysisId String?    @db.Uuid
+  createdAt           DateTime   @default(now())
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comparison    Comparison?    @relation(fields: [comparisonId], references: [id], onDelete: SetNull)
-  stockAnalysis StockAnalysis? @relation(fields: [stockAnalysisId], references: [id], onDelete: SetNull)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comparison        Comparison?        @relation(fields: [comparisonId], references: [id], onDelete: SetNull)
+  stockAnalysis     StockAnalysis?     @relation(fields: [stockAnalysisId], references: [id], onDelete: SetNull)
+  portfolioAnalysis PortfolioAnalysis? @relation(fields: [portfolioAnalysisId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([comparisonId])
   @@index([stockAnalysisId])
+  @@index([portfolioAnalysisId])
   @@map("llm_logs")
 }
