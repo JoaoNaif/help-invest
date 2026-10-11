@@ -282,7 +282,139 @@ Erros do `POST`: `400` corpo fora do formato (0 ou 3+ itens, `amount` ≤ 0) · 
 - A carteira reconhece uma ação pelo **ticker no nome** da posição (`assetType: "ACAO"`, `name: "ITUB4"` ou `"ITUB4 - Itaú"`).
 - A fonte (Yahoo Finance) é **não oficial**: pode ficar indisponível (`503`) ou trazer campos `null`.
 
-## 9. Enums (valores exatos)
+## 9. Análise da carteira (por cenário e estratégia)
+
+O usuário escolhe uma **estratégia**; o backend compara a carteira atual com a **faixa-alvo** do perfil dele, olha o cenário de juros (Selic, CDI, IPCA) e devolve quais **classes de ativo** estão abaixo, dentro ou acima da faixa. **Não indica produto nem ticker.** Regras, tabela-alvo e limiares: [`11-analise-de-carteira.md`](./11-analise-de-carteira.md).
+
+> **Regras de exibição**
+> - É **informação, não recomendação**. Mostre o aviso fixo (regra 5 da seção 1). Descreva a situação ("abaixo da faixa-alvo"), nunca ordene ("compre", "venda"). O texto de `reasons`, `risks` e `alerts` já vem pronto e neutro.
+> - Valores saem como `string` **com 2 casas fixas** (`"10000.00"`, `"9.49"`), como na seção 8. Percentuais estão em pontos (0–100).
+> - `null` significa **dado indisponível**, nunca zero. Mostre "—".
+> - O **perfil nunca bloqueia**: sem perfil valem `MEDIUM` e 60 meses (`profileUsed.isDefault = true`) e vem o alerta `PROFILE_MISSING`.
+> - A análise é um **snapshot**: continua legível mesmo depois que a carteira mudar. Carteira ou mercado mudou = rode outra análise.
+
+### Rotas
+
+| Rota | Corpo / query | Resposta |
+|---|---|---|
+| `POST /portfolio-analyses` | `{ strategy }` — `BALANCE` \| `MAX_RETURN` \| `INCOME` \| `PROTECT` | `201 { analysis }` (sem LLM; `explanation: null`) |
+| `GET /portfolio-analyses/:id` | — | `200 { analysis }` (com a última `explanation`, ou `null`) |
+| `GET /portfolio-analyses?page=1` | `page` ≥ 1 (20 por página, mais recentes primeiro) | `200 { analyses: [analysis] }` — **sem** o campo `explanation` |
+| `POST /portfolio-analyses/:id/explanation` | — | `200 { explanation }` (gasta crédito do LLM) |
+
+Erros: `POST` → `400` estratégia desconhecida · `429` limite (20/min). `GET :id` → `404` não existe · `403` é de outro usuário · `400` id inválido. `POST :id/explanation` → `404` · `403` · `400` · `503` LLM fora do ar (ou sem chave) · `502` resposta inválida do LLM (tente de novo) · `429` limite (10/min).
+
+### Estratégias
+
+| `strategy` | Rótulo sugerido | Efeito nas faixas (sempre dentro do teto do perfil) |
+|---|---|---|
+| `BALANCE` | Equilibrar | faixas da tabela |
+| `MAX_RETURN` | Rentabilizar ao máximo | metade superior das faixas de renda variável |
+| `INCOME` | Gerar renda recorrente | metade superior de fundos imobiliários e renda fixa atrelada à inflação |
+| `PROTECT` | Proteger o patrimônio | metade inferior das faixas de renda variável |
+
+A estratégia vale só para a análise em que foi escolhida; o `goal` do perfil entra como contexto.
+
+### Formato
+
+```jsonc
+{
+  "analysis": {
+    "id": "uuid",
+    "strategy": "BALANCE",
+    "createdAt": "2026-10-10T12:00:00.000Z",
+    "result": {
+      "total": "10000.00",                    // R$ — soma das posições
+      "current": [                            // as 6 classes com faixa-alvo + FUNDS/OTHER só se > 0
+        { "assetClass": "FIXED_POST", "amount": "10000.00", "percentage": "100.00" }
+      ],
+      "target": [                             // faixa-alvo por classe (% da carteira)
+        { "assetClass": "FIXED_POST", "min": "20.00", "max": "40.00" }
+      ],
+      "reserve": {                            // null = sem perfil, reserva desconhecida
+        "recommended": "60000.00",            // 6 × renda mensal
+        "current": "20000.00",                // reserva declarada no perfil
+        "gap": "40000.00",                    // "0.00" se completa
+        "isBelowRecommended": true
+      },
+      "paths": [                              // ranqueado: maior distância da faixa primeiro
+        {
+          "assetClass": "FIXED_POST",
+          "direction": "REDUCE",              // INCREASE | MAINTAIN | REDUCE
+          "currentPercentage": "80.00",
+          "targetMin": "20.00",
+          "targetMax": "40.00",
+          "gapPercentage": "40.00",           // pontos até a faixa; "0.00" se dentro
+          "reasons": [ { "code": "ABOVE_TARGET_RANGE", "message": "…" } ],
+          "risks":   [ { "code": "LOW_RESERVE_FOR_STOCKS", "message": "…" } ]
+        }
+      ],
+      "market": {                             // cada campo pode ser null
+        "selic": "14.75", "cdi": "14.65", "ipca12m": "4.91",
+        "realRate": "9.38",                   // juro real aproximado, % a.a.
+        "selicTrend": "FALLING",              // FALLING | STABLE | RISING | null
+        "asOf": "2026-10-09",                 // data da Selic/CDI
+        "ipcaAsOf": "2026-09-01"              // data do último IPCA mensal (sai com defasagem)
+      },
+      "profileUsed": { "riskTolerance": "MEDIUM", "horizonMonths": 60, "goal": null, "isDefault": true },
+      "alerts": [ { "code": "NO_EQUITY_MARKET_DATA", "severity": "INFO", "message": "…" } ]
+    },
+    "assumptions": { /* tabela-alvo usada, limiares, fórmulas e fontes — para "Como calculamos" */ },
+    "explanation": null                       // só em POST (null), GET :id e POST :id/explanation
+  }
+}
+```
+
+### Formato da explicação
+
+```json
+{
+  "summary": "2 a 3 frases, linguagem simples",
+  "highlights": [{ "assetClass": "FIXED_POST", "text": "1 a 2 frases sobre a classe" }],
+  "attentionPoints": ["ponto curto de atenção"]
+}
+```
+
+- Só sob demanda (botão "Explicar"). O LLM **não recalcula**, **não cita produto/ticker** e **não diz "compre/venda"**; recebe só percentuais e códigos (nunca valores em reais, renda, emissor ou CNPJ).
+- `highlights` e `attentionPoints` têm **no máximo 3 itens**. `assetClass` sempre é uma classe real: o backend descarta as que o LLM inventou. As listas podem vir vazias.
+- O texto **não traz aviso legal**: a tela mostra o aviso fixo.
+
+### Como exibir
+
+- **`direction`:** `INCREASE` = abaixo da faixa · `MAINTAIN` = dentro · `REDUCE` = acima. Prefira rótulos descritivos ("Abaixo da faixa", "Dentro", "Acima") a ordens. Há **um caminho por classe com faixa** (6), inclusive `MAINTAIN`.
+- **Barras "atual × faixa-alvo":** `current[].percentage` contra `target[].min`–`max`. As faixas são **bandas**, não precisam somar 100.
+- **Reserva (`reserve`):** é o ponto de partida. Se `isBelowRecommended`, mostre-a em destaque **antes** dos caminhos; ela não é uma classe de ativo. A base é a reserva **declarada no perfil**, não as posições.
+- **`FUNDS` e `OTHER`** aparecem em `current` mas **não têm faixa nem caminho** (o motor não sabe o que há dentro de um fundo). Com mais de 20% neles vem `UNCLASSIFIED_ALLOCATION`.
+- **Cenário:** o `market` e os motivos `SCENARIO_*` só **desempatam a ordem** e explicam; não mudam a faixa. `selicTrend: null` = sem histórico (a regra não dispara).
+- **Atalhos:** renda fixa (`FIXED_*`) → comparador; `STOCKS` → análise de ações; `REAL_ESTATE_FUNDS` e `CRYPTO` não têm ferramenta ainda.
+- **Painel "Como calculamos":** `assumptions` traz a tabela-alvo base e a aplicada, o teto de horizonte, as classes que a estratégia ajustou, as fórmulas do juro real e do IPCA 12m, os limiares e as fontes/datas dos indicadores.
+
+### Códigos desta seção
+
+| `code` | Onde | Quando |
+|---|---|---|
+| `BELOW_TARGET_RANGE` · `WITHIN_TARGET_RANGE` · `ABOVE_TARGET_RANGE` | motivo do caminho | situação frente à faixa |
+| `STRATEGY_ADJUSTED_RANGE` | motivo | a estratégia deslocou a faixa da classe |
+| `HORIZON_CAPS_RANGE` | motivo | o horizonte limitou a renda variável |
+| `SCENARIO_HIGH_REAL_RATE` · `SCENARIO_HIGH_REAL_RATE_VARIABLE_INCOME` · `SCENARIO_HIGH_REAL_RATE_FALLING_SELIC` · `SCENARIO_LOW_REAL_RATE` · `SCENARIO_FALLING_SELIC` | motivo | cenário de juros reforça/enfraquece a classe |
+| `PRICE_VOLATILITY` · `HIGH_VOLATILITY` · `MARK_TO_MARKET` · `ISSUER_AND_LIQUIDITY` | risco (só em `INCREASE`) | risco típico da classe |
+| `LOW_RESERVE_FOR_STOCKS` | risco (renda variável, exceto `REDUCE`) | reserva abaixo de 6× a renda |
+| `PORTFOLIO_EMPTY` | alerta | sem posições: caminhos = faixa-alvo completa |
+| `PROFILE_MISSING` · `PROFILE_OUTDATED` · `LOW_EMERGENCY_RESERVE` · `ABOVE_FGC_LIMIT` · `ISSUER_CONCENTRATION` | alerta | os mesmos do resumo da carteira (seção 6) |
+| `GOAL_IS_RESERVE` | alerta | objetivo "reserva": renda variável tratada como horizonte curto |
+| `HORIZON_CAPS_VARIABLE_INCOME` | alerta | horizonte < 60 meses limita a renda variável (10% ou 25%) |
+| `STRATEGY_LIMITED_BY_PROFILE` | alerta | "rentabilizar" esbarrou no teto do perfil/horizonte |
+| `UNCLASSIFIED_ALLOCATION` | alerta | > 20% em fundos ou ativos sem classificação |
+| `MARKET_DATA_UNAVAILABLE` | alerta | faltou Selic ou IPCA recente: cenário de fora |
+| `NO_EQUITY_MARKET_DATA` | alerta | sempre: sem preço de ações/FIIs (IFIX, yield médio) nesta fase |
+
+### Limitações conhecidas
+
+- **Sem preço de ações/FIIs** (IFIX, yield médio): a análise compara carteira × faixa-alvo × cenário de juros.
+- O `assetType` + `indexer` da posição define a classe: renda fixa **sem indexador** vira `OTHER`.
+- O juro real é **ex-post** (Selic meta contra IPCA dos últimos 12 meses).
+
+## 10. Enums (valores exatos)
 
 | Campo | Valores |
 |---|---|
@@ -296,13 +428,17 @@ Erros do `POST`: `400` corpo fora do formato (0 ou 3+ itens, `amount` ≤ 0) · 
 | `severity` | `INFO` `WARNING` `DANGER` |
 | `verdict` (valuation) | `CHEAP` `FAIR` `EXPENSIVE` `UNAVAILABLE` |
 | `method` (preço teto) | `BAZIN` `GRAHAM` |
+| `strategy` (análise da carteira) | `BALANCE` `MAX_RETURN` `INCOME` `PROTECT` |
+| `assetClass` | `FIXED_POST` `FIXED_INFLATION` `FIXED_PRE` `STOCKS` `REAL_ESTATE_FUNDS` `CRYPTO` (têm faixa-alvo) · `FUNDS` `OTHER` (só em `current`) |
+| `direction` (caminho) | `INCREASE` `MAINTAIN` `REDUCE` |
+| `selicTrend` | `FALLING` `STABLE` `RISING` (ou `null`) |
 
 Rótulos em português são responsabilidade do front (mapeie os valores acima).
 
-## 10. Limites de requisição (por IP, por minuto)
+## 11. Limites de requisição (por IP, por minuto)
 
-Geral 300 · `POST /accounts` 5 · `POST /sessions` 5 · `POST /sessions/refresh` 30 · `POST /comparisons` 10 · `POST /comparisons/:id/explanation` 10 · `POST /stock-analyses` 20. Estouro → `429`; mostre mensagem amigável e peça para aguardar.
+Geral 300 · `POST /accounts` 5 · `POST /sessions` 5 · `POST /sessions/refresh` 30 · `POST /comparisons` 10 · `POST /comparisons/:id/explanation` 10 · `POST /stock-analyses` 20 · `POST /portfolio-analyses` 20 · `POST /portfolio-analyses/:id/explanation` 10. Estouro → `429`; mostre mensagem amigável e peça para aguardar.
 
-## 11. Para subir o backend localmente
+## 12. Para subir o backend localmente
 
 `npm run services:up` (Postgres) → `npm run start:dev` (API em `:3333`). Ao subir, o backend sincroniza Selic/CDI/IPCA do Banco Central sozinho (leva alguns segundos na primeira vez; antes disso `evaluate` pode dar 503). Sem `ANTHROPIC_API_KEY` no `.env`, leitura de texto/print e explicação respondem 503 — a comparação com opções digitadas funciona normalmente.

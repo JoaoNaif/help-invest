@@ -26,6 +26,7 @@ decisões novas lá** (`05-decisoes.md`) e mantenha o índice do README em dia.
 | [`docs/08`](./docs/08-casos-de-uso.md) | use-cases essenciais: entrada, saída, erros, ports, ordem |
 | [`docs/09`](./docs/09-api-referencia.md) | contrato HTTP para o front (rotas, erros, cookies/CORS) |
 | [`docs/10`](./docs/10-analise-de-acoes.md) | análise de ações: fontes, regras, preço teto, consenso |
+| [`docs/11`](./docs/11-analise-de-carteira.md) | análise da carteira: classes, faixa-alvo, cenário de juros, caminhos |
 
 ## Princípios do produto (valem para qualquer código)
 
@@ -96,7 +97,8 @@ Compartilhado entre contextos: `src/domain/shared/` — enums comuns, `Alert` (f
 alerta), `constants/` (normas com **fonte e data**, ex.: limite do FGC) e `format.ts`
 (`formatBRL`/`formatPercent` direto do `Decimal`).
 
-Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`, `stock-analysis`.
+Contextos: `accounts`, `portfolio`, `market-data`, `comparison`, `recommendations`, `stock-analysis`,
+`portfolio-analysis`.
 Portas previstas: `LlmGateway`, `MarketDataProvider`, repositórios.
 
 ### Quando criar use-case
@@ -188,6 +190,12 @@ hosting mudar: [`docs/05`](./docs/05-decisoes.md) (entrada "Dados de mercado").
 oficial; `interval=1d` é obrigatório, com `1mo` o Yahoo perde proventos), serviços de regra
 (`DividendAnalyzer`, `CeilingPriceCalculator`, `ValuationRules`, `StockRules`, `StockPersonalFit`) e
 concorrentes fixos (só bancos). Detalhes e pendências em [`docs/10`](./docs/10-analise-de-acoes.md).
+
+**Análise da carteira (`portfolio-analysis`):** `POST/GET /portfolio-analyses`, `GET /portfolio-analyses/:id` e
+`POST /portfolio-analyses/:id/explanation`. Motor puro (`AssetClassifier`, `TargetAllocation`,
+`MarketScenario`, `PortfolioAnalyzer`): carteira × faixa-alvo do perfil/estratégia × cenário de juros,
+sem indicar produto. Faixa-alvo é regra do produto (v1, ajustável). Regras, tabela e limiares em
+[`docs/11`](./docs/11-analise-de-carteira.md); decisões em `docs/05`.
 
 **Pendências:** nenhuma de infra do MVP. Tabelas **novas**
 continuam sendo definidas em conjunto com o autor — não criar models ou entidades fora do

@@ -16,6 +16,7 @@ Pasta de memória do projeto. Serve para retomar o contexto depois de muito temp
 | [08-casos-de-uso.md](08-casos-de-uso.md) | Use-cases essenciais do MVP: entrada, saída, erros, ports, ordem de implementação |
 | [09-api-referencia.md](09-api-referencia.md) | Contrato HTTP para o front: rotas, corpos, erros, cookies/CORS, fluxo do comparador |
 | [10-analise-de-acoes.md](10-analise-de-acoes.md) | Análise de ações: dados, regras (dividendos, preço teto, valuation), consenso, proposta de tabela |
+| [11-analise-de-carteira.md](11-analise-de-carteira.md) | Análise da carteira por cenário e estratégia: classes, faixa-alvo, cenário de juros, caminhos, explicação |
 
 ## Convenções
 
