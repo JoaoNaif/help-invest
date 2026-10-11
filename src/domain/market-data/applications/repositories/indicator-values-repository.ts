@@ -9,6 +9,11 @@ export abstract class IndicatorValuesRepository {
     indicator: Indicator,
     limit: number
   ): Promise<IndicatorValue[]>
+  /** Último valor com data igual ou anterior a `date`; `null` se não houver. */
+  abstract findOnOrBefore(
+    indicator: Indicator,
+    date: Date
+  ): Promise<IndicatorValue | null>
   /**
    * Grava ignorando duplicados (`indicator` + `date`).
    * Devolve quantos foram de fato inseridos.

@@ -6,9 +6,7 @@ import { PrismaIndicatorValueMapper } from '../mappers/prisma-indicator-value-ma
 import { PrismaService } from '../prisma.service'
 
 @Injectable()
-export class PrismaIndicatorValuesRepository
-  implements IndicatorValuesRepository
-{
+export class PrismaIndicatorValuesRepository implements IndicatorValuesRepository {
   constructor(private prisma: PrismaService) {}
 
   async findLatest(indicator: Indicator): Promise<IndicatorValue | null> {
@@ -31,6 +29,18 @@ export class PrismaIndicatorValuesRepository
     })
 
     return values.map(PrismaIndicatorValueMapper.toDomain)
+  }
+
+  async findOnOrBefore(
+    indicator: Indicator,
+    date: Date
+  ): Promise<IndicatorValue | null> {
+    const value = await this.prisma.indicatorValue.findFirst({
+      where: { indicator, date: { lte: date } },
+      orderBy: { date: 'desc' },
+    })
+
+    return value ? PrismaIndicatorValueMapper.toDomain(value) : null
   }
 
   async createMany(values: IndicatorValue[]): Promise<number> {

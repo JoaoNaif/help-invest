@@ -16,6 +16,18 @@ export class InMemoryIndicatorValuesRepository implements IndicatorValuesReposit
       .slice(0, limit)
   }
 
+  async findOnOrBefore(indicator: Indicator, date: Date) {
+    return (
+      this.items
+        .filter(
+          (item) =>
+            item.indicator === indicator &&
+            item.date.getTime() <= date.getTime()
+        )
+        .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null
+    )
+  }
+
   async createMany(values: IndicatorValue[]) {
     let inserted = 0
 
